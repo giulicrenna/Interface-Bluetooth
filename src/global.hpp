@@ -1,0 +1,1 @@
+const char *deviceID = String(ESP.getEfuseMac()).c_str();
