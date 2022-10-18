@@ -76,6 +76,7 @@ bool areAnyNumber(std::string str)
   return false;
 }
 
+// Auto Baudrate
 int detRate(int RXD, int TXD)
 {
   int bauds[14] = {110, 300, 600, 1200, 2400, 4800, 9600, 14400, 19200, 38400, 57600, 115200, 128000, 256000};
