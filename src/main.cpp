@@ -9,38 +9,51 @@
 #include <vector>
 #include <cstdlib>
 
+#include <HardwareSerial.h>
+#include <BluetoothSerial.h>
 #include "global.hpp"
-#include "blueMan.hpp"
-#include "rs485Read.hpp"
-#include "rs232Read.hpp"
+
+BluetoothSerial SerialBT;
+HardwareSerial SerialPort(1);
 
 #if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
 #error Bluetooth is not enabled! Please run `make menuconfig` to and enable it
 #endif
 
-int baudrate = 9600;
+#if !defined(CONFIG_BT_SPP_ENABLED)
+#error Serial Bluetooth not available or not enabled. It is only available for the ESP32 chip.
+#endif
+
+int baudrate_ = 9600;
+
 #define RS232
 
-void setup() {
-  #ifdef RS232
-  setupRS232((uint8_t)baudrate);
-  #endif
-  #ifdef RS485
-  setupRS485((uint8_t)baudrate);
-  #endif
-
-  setupBluethooth();    
+void setup()
+{
+  Serial.begin(9600);
+  SerialBT.begin("Darkflow-Device"); // Bluetooth device name
+  Serial.println("The device started, now you can pair it with bluetooth!");
+#ifdef RS232
+  SerialPort.begin(9600, SERIAL_8N1, RXD_232, TXD_232);
+#endif
+#ifdef RS485
+  Serial1.begin(baudRate_, SERIAL_8N1, RXD_485, TXD_485);
+#endif
 }
 
-void loop() {
-  byte message;
+void loop()
+{
+#ifdef RS232
+  String msg = SerialPort.readString();
 
-  #ifdef RS232
-  message = communicationRS232();
-  #endif
-  #ifdef RS485
-  message = communicationRS485();
-  #endif
+  SerialBT.println(msg);
+  Serial.println(msg);  
+#endif
 
-  dataHermes(message);
+#ifdef RS485
+  String msg = SerialPort.readString();
+
+  SerialBT.println(msg);
+  Serial.println(msg);
+#endif
 }
