@@ -18,17 +18,15 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 
-#define RS232
 /* define the UUID that our custom service will use */
 #define SERVICE_UUID "0000FFE0-0000-1000-8000-00805F9B34FB"
 #define CHARACTERISTIC_UUID "0000FFE1-0000-1000-8000-00805F9B34FB"
 #define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 #define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
-// BluetoothSerial SerialBT;
 HardwareSerial SerialPort(1);
 
-int detRate(int RXD, int TXD);
+int detRate(int RXD, int TXD, bool isRS232 = true);
 void changeColour(int color[3]);
 
 /*
@@ -38,16 +36,12 @@ GREEN
 PINK
 WHITE
 */
-int color[5] = {{255, 0, 0}, {0, 0, 102}, {0, 204, 0}, {204, 0, 204}, {255, 255, 255}}
+int color[5][3] = {{255, 0, 0}, {0, 0, 102}, {0, 204, 0}, {204, 0, 204}, {255, 255, 255}};
 
 BLEServer *pServer = NULL;
 BLECharacteristic *pTxCharacteristic;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
-
-#define SERVICE_UUID "6E400001-B5A3-F393-E0A9-E50E24DCCA9E" // UART service UUID
-#define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
-#define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
 class MyServerCallbacks : public BLEServerCallbacks
 {
@@ -133,6 +127,17 @@ void setup()
   Serial.begin(9600);
   int baudrate = detRate(RXD_232, TXD_232);
 
+  if (baudrate)
+  {
+#define RS232_
+  }
+  else
+  {
+    baudrate = detRate(RXD_485, TXD_485);
+#define RS485_
+    digitalWrite(TR, LOW); // Transmitter: LOW, Receiver: HIGH
+  }
+
   // Create the BLE Device
   BLEDevice::init("Darkflow-Device");
 
@@ -190,13 +195,22 @@ void setup()
 
   esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY, &rsp_key, sizeof(uint8_t));
 
+  // advertisement config
+
+  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+  pAdvertising->addServiceUUID(SERVICE_UUID);
+  pAdvertising->setScanResponse(true);
+  pAdvertising->setMinPreferred(0x06); // functions that help with iPhone connections issue
+  pAdvertising->setMinPreferred(0x12);
+  BLEDevice::startAdvertising();
+
   Serial.println("Characteristic defined! Now you can read it in your phone!");
 
-#ifdef RS232
+#ifdef RS232_
   SerialPort.begin(baudrate, SERIAL_8N1, RXD_232, TXD_232);
 #endif
-#ifdef RS485
-  Serial1.begin(baudrate, SERIAL_8N1, RXD_485, TXD_485);
+#ifdef RS485_
+  SerialPort.begin(baudrate, SERIAL_8N1, RXD_485, TXD_485);
 #endif
 }
 
@@ -235,10 +249,28 @@ void loop()
 #ifdef RS485
   String msg = SerialPort.readString();
 
-  char buffer[msg.length() + 1];
-  str.toCharArray(buffer, msg.length() + 1);
-  customCharacteristic.setValue((char *)&buffer);
-  customCharacteristic.notify();
+  if (deviceConnected)
+  {
+    char buffer[msg.length() + 1];
+    // msg.toCharArray(buffer, msg.length() + 1);
+    pTxCharacteristic->setValue(msg.c_str());
+    pTxCharacteristic->notify();
+    delay(10); // bluetooth stack will go into congestion, if too many packets are sent
+  }
+  // disconnecting
+  if (!deviceConnected && oldDeviceConnected)
+  {
+    delay(500);                  // give the bluetooth stack the chance to get things ready
+    pServer->startAdvertising(); // restart advertising
+    Serial.println("start advertising");
+    oldDeviceConnected = deviceConnected;
+  }
+  // connecting
+  if (deviceConnected && !oldDeviceConnected)
+  {
+    // do stuff here on connecting
+    oldDeviceConnected = deviceConnected;
+  }
 
   Serial.println(msg);
 #endif
@@ -262,29 +294,53 @@ bool areAnyKnownCharacter(std::string str)
 }
 
 // Auto Baudrate
-int detRate(int RXD, int TXD)
+int detRate(int RXD, int TXD, bool isRS232)
 {
   int count = 0;
   int bauds[14] = {9600, 115200, 110, 300, 600, 1200, 57600, 2400, 4800, 14400, 19200, 38400, 128000, 256000};
   for (int baud : bauds)
   {
-    changeColour(colour[count]);
-    count++;
-    Serial.println("Testing: " + String(baud) + " bauds.");
-    Serial1.begin(baud, SERIAL_8N1, RXD, TXD);
-    String incomming = Serial1.readString();
-    if (areAnyKnownCharacter(incomming.c_str()))
+    // ITERATE OVER RS232
+    if (isRS232)
     {
-      Serial.println("Correct configuration found!");
-      Serial1.end();
-      return baud;
+      changeColour(color[count]);
+      count++;
+      Serial.println("Testing: " + String(baud) + " bauds.");
+      Serial1.begin(baud, SERIAL_8N1, RXD, TXD);
+      String incomming = Serial1.readString();
+      if (areAnyKnownCharacter(incomming.c_str()))
+      {
+        Serial.println("Correct configuration found!");
+        Serial1.end();
+        return baud;
+      }
+      if (count == 5)
+      {
+        count = 0;
+      }
     }
-    if (count == 5)
+    else
     {
-      count = 0;
+    // ITERATE OVER RS485
+      changeColour(color[count]);
+      count++;
+      Serial.println("Testing: " + String(baud) + " bauds.");
+      Serial1.begin(baud, SERIAL_8N1, RXD, TXD);
+      digitalWrite(TX, LOW);
+      String incomming = Serial1.readString();
+      if (areAnyKnownCharacter(incomming.c_str()))
+      {
+        Serial.println("Correct configuration found!");
+        Serial1.end();
+        return baud;
+      }
+      if (count == 5)
+      {
+        count = 0;
+      }
     }
   }
-  return 115200;
+   return false;
 }
 
 void changeColour(int color[3])
