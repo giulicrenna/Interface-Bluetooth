@@ -21,10 +21,12 @@
 /* define the UUID that our custom service will use */
 #define SERVICE_UUID "0000FFE0-0000-1000-8000-00805F9B34FB"
 #define CHARACTERISTIC_UUID "0000FFE1-0000-1000-8000-00805F9B34FB"
-#define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
-#define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+#define CHARACTERISTIC_UUID_RX "0000FFE2-0000-1000-8000-00805F9B34FB"
+#define CHARACTERISTIC_UUID_TX "0000FFE3-0000-1000-8000-00805F9B34FB"
 
 HardwareSerial SerialPort(1);
+
+bool isRS485;
 
 int detRate(int RXD, int TXD, bool isRS232 = true);
 void changeColour(int color[3]);
@@ -125,16 +127,16 @@ void setup()
   pinMode(PIN_BLUE, OUTPUT);
 
   Serial.begin(9600);
-  int baudrate = detRate(RXD_232, TXD_232);
+  int baudrate = detRate(RXD_232, TXD_232, true);
 
   if (baudrate)
   {
-#define RS232_
+    isRS485 = false;
   }
   else
   {
-    baudrate = detRate(RXD_485, TXD_485);
-#define RS485_
+    baudrate = detRate(RXD_485, TXD_485, false);
+    isRS485 = true;
     digitalWrite(TR, LOW); // Transmitter: LOW, Receiver: HIGH
   }
 
@@ -206,74 +208,82 @@ void setup()
 
   Serial.println("Characteristic defined! Now you can read it in your phone!");
 
-#ifdef RS232_
+  if(not(isRS485)){
   SerialPort.begin(baudrate, SERIAL_8N1, RXD_232, TXD_232);
-#endif
-#ifdef RS485_
+  }else if(isRS485){
   SerialPort.begin(baudrate, SERIAL_8N1, RXD_485, TXD_485);
-#endif
+  }else{
+    Serial.println("Error while starting Serial Port");
+  }
 }
 
 void loop()
 {
-#ifdef RS232
-  String msg = SerialPort.readString();
+  if (not(isRS485))
+  {
+    String msg = SerialPort.readString();
 
-  if (deviceConnected)
+    if (deviceConnected)
+    {
+
+      char buffer[msg.length() + 1];
+      // msg.toCharArray(buffer, msg.length() + 1);
+      pTxCharacteristic->setValue(msg.c_str());
+      pTxCharacteristic->notify();
+      delay(10); // bluetooth stack will go into congestion, if too many packets are sent
+    }
+    // disconnecting
+    if (!deviceConnected && oldDeviceConnected)
+    {
+      delay(500);                  // give the bluetooth stack the chance to get things ready
+      pServer->startAdvertising(); // restart advertising
+      Serial.println("start advertising");
+      oldDeviceConnected = deviceConnected;
+    }
+    // connecting
+    if (deviceConnected && !oldDeviceConnected)
+    {
+      // do stuff here on connecting
+      oldDeviceConnected = deviceConnected;
+    }
+
+    Serial.println(">" + msg);
+  }
+  else if (isRS485)
   {
 
-    char buffer[msg.length() + 1];
-    // msg.toCharArray(buffer, msg.length() + 1);
-    pTxCharacteristic->setValue(msg.c_str());
-    pTxCharacteristic->notify();
-    delay(10); // bluetooth stack will go into congestion, if too many packets are sent
-  }
-  // disconnecting
-  if (!deviceConnected && oldDeviceConnected)
-  {
-    delay(500);                  // give the bluetooth stack the chance to get things ready
-    pServer->startAdvertising(); // restart advertising
-    Serial.println("start advertising");
-    oldDeviceConnected = deviceConnected;
-  }
-  // connecting
-  if (deviceConnected && !oldDeviceConnected)
-  {
-    // do stuff here on connecting
-    oldDeviceConnected = deviceConnected;
-  }
+    String msg = SerialPort.readString();
 
-  Serial.println(msg);
-#endif
+    if (deviceConnected)
+    {
+      char buffer[msg.length() + 1];
+      // msg.toCharArray(buffer, msg.length() + 1);
+      pTxCharacteristic->setValue(msg.c_str());
+      pTxCharacteristic->notify();
+      delay(10); // bluetooth stack will go into congestion, if too many packets are sent
+    }
+    // disconnecting
+    if (!deviceConnected && oldDeviceConnected)
+    {
+      delay(500);                  // give the bluetooth stack the chance to get things ready
+      pServer->startAdvertising(); // restart advertising
+      Serial.println("start advertising");
+      oldDeviceConnected = deviceConnected;
+    }
+    // connecting
+    if (deviceConnected && !oldDeviceConnected)
+    {
+      // do stuff here on connecting
+      oldDeviceConnected = deviceConnected;
+    }
 
-#ifdef RS485
-  String msg = SerialPort.readString();
-
-  if (deviceConnected)
-  {
-    char buffer[msg.length() + 1];
-    // msg.toCharArray(buffer, msg.length() + 1);
-    pTxCharacteristic->setValue(msg.c_str());
-    pTxCharacteristic->notify();
-    delay(10); // bluetooth stack will go into congestion, if too many packets are sent
+    Serial.println(">" + msg);
   }
-  // disconnecting
-  if (!deviceConnected && oldDeviceConnected)
+  else
   {
-    delay(500);                  // give the bluetooth stack the chance to get things ready
-    pServer->startAdvertising(); // restart advertising
-    Serial.println("start advertising");
-    oldDeviceConnected = deviceConnected;
+    Serial.println("WTF");
+    delay(2000);
   }
-  // connecting
-  if (deviceConnected && !oldDeviceConnected)
-  {
-    // do stuff here on connecting
-    oldDeviceConnected = deviceConnected;
-  }
-
-  Serial.println(msg);
-#endif
 }
 
 bool areAnyKnownCharacter(std::string str)
@@ -321,7 +331,7 @@ int detRate(int RXD, int TXD, bool isRS232)
     }
     else
     {
-    // ITERATE OVER RS485
+      // ITERATE OVER RS485
       changeColour(color[count]);
       count++;
       Serial.println("Testing: " + String(baud) + " bauds.");
@@ -340,7 +350,7 @@ int detRate(int RXD, int TXD, bool isRS232)
       }
     }
   }
-   return false;
+  return false;
 }
 
 void changeColour(int color[3])
