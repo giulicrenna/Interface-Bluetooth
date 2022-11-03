@@ -1,8 +1,8 @@
 #define TR GPIO_NUM_4 //receiver enable
-#define RXD_485 GPIO_NUM_27
-#define TXD_485 GPIO_NUM_28
-#define RXD_232 GPIO_NUM_34
-#define TXD_232 GPIO_NUM_35
+#define RXD_485 GPIO_NUM_16
+#define TXD_485 GPIO_NUM_17
+#define RXD_232 GPIO_NUM_5
+#define TXD_232 GPIO_NUM_18
 #define MAX485_RE_DE 33
 #define RX_BUFF_SIZE 30
 #define PIN_RED    20
