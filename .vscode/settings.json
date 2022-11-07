@@ -59,5 +59,12 @@
         "cinttypes": "cpp",
         "typeinfo": "cpp"
     },
-    "C_Cpp.errorSquiggles": "Disabled"
+    "C_Cpp.errorSquiggles": "Disabled",
+    "cSpell.words": [
+        "Darkflow",
+        "Efuse",
+        "GPIO",
+        "LOGI",
+        "MITM"
+    ]
 }

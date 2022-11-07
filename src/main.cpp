@@ -11,7 +11,7 @@
 #include <vector>
 #include <cstdlib>
 
-#include "global.hpp" // WARNING! global.h must be included before BluethoothSerial.h, 'cause bluethooth pin is set from global.h
+#include "global.hpp"
 #include <HardwareSerial.h>
 #include <BLEDevice.h>
 #include <BLEServer.h>
@@ -208,11 +208,16 @@ void setup()
 
   Serial.println("Characteristic defined! Now you can read it in your phone!");
 
-  if(not(isRS485)){
-  SerialPort.begin(baudrate, SERIAL_8N1, RXD_232, TXD_232);
-  }else if(isRS485){
-  SerialPort.begin(baudrate, SERIAL_8N1, RXD_485, TXD_485);
-  }else{
+  if (not(isRS485))
+  {
+    SerialPort.begin(baudrate, SERIAL_8N1, RXD_232, TXD_232);
+  }
+  else if (isRS485)
+  {
+    SerialPort.begin(baudrate, SERIAL_8N1, RXD_485, TXD_485);
+  }
+  else
+  {
     Serial.println("Error while starting Serial Port");
   }
 }
@@ -267,7 +272,7 @@ void loop()
     {
       delay(500);                  // give the bluetooth stack the chance to get things ready
       pServer->startAdvertising(); // restart advertising
-      Serial.println("start advertising");
+      Serial.println("start advertising"); 
       oldDeviceConnected = deviceConnected;
     }
     // connecting
@@ -283,6 +288,7 @@ void loop()
   {
     Serial.println("WTF");
     delay(2000);
+    ESP.restart();
   }
 }
 
@@ -292,6 +298,10 @@ bool areAnyKnownCharacter(std::string str)
   for (int num : numbers)
   {
     if (str.find("\r") != std::string::npos)
+    {
+      return true;
+    }
+    else if (str.find("\n") != std::string::npos)
     {
       return true;
     }
@@ -317,8 +327,8 @@ int detRate(int RXD, int TXD, bool isRS232)
       count++;
       Serial.println("Testing: " + String(baud) + " bauds.");
       Serial1.begin(baud, SERIAL_8N1, RXD, TXD);
-      String incomming = Serial1.readString();
-      if (areAnyKnownCharacter(incomming.c_str()))
+      String incoming = Serial1.readString();
+      if (areAnyKnownCharacter(incoming.c_str()))
       {
         Serial.println("Correct configuration found!");
         Serial1.end();
@@ -337,8 +347,8 @@ int detRate(int RXD, int TXD, bool isRS232)
       Serial.println("Testing: " + String(baud) + " bauds.");
       Serial1.begin(baud, SERIAL_8N1, RXD, TXD);
       digitalWrite(TX, LOW);
-      String incomming = Serial1.readString();
-      if (areAnyKnownCharacter(incomming.c_str()))
+      String incoming = Serial1.readString();
+      if (areAnyKnownCharacter(incoming.c_str()))
       {
         Serial.println("Correct configuration found!");
         Serial1.end();
