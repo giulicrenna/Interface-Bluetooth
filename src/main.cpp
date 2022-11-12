@@ -29,16 +29,18 @@ HardwareSerial SerialPort(1);
 bool isRS485;
 
 int detRate(int RXD, int TXD, bool isRS232 = true);
-void changeColour(int color[3]);
+void blink(int k, bool isRS232);
+void changeColour(int n);
+void setColor(int R, int G, int B);
 
 /*
 RED
 BLUE
 GREEN
 PINK
-WHITE
+BLACK
 */
-int color[5][3] = {{255, 0, 0}, {0, 0, 102}, {0, 204, 0}, {204, 0, 204}, {255, 255, 255}};
+int color[5][3] = {{255, 0, 0}, {0, 0, 255}, {0, 255, 0}, {255, 0, 255}, {0, 0, 0}};
 
 BLEServer *pServer = NULL;
 BLECharacteristic *pTxCharacteristic;
@@ -129,7 +131,7 @@ void setup()
   Serial.begin(9600);
   int baudrate = detRate(RXD_232, TXD_232, true);
 
-  if (baudrate)
+  if (baudrate > 1)
   {
     isRS485 = false;
   }
@@ -141,7 +143,7 @@ void setup()
   }
 
   // Create the BLE Device
-  BLEDevice::init("Darkflow-Device");
+  BLEDevice::init(deviceName);
 
   BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT);
 
@@ -210,10 +212,12 @@ void setup()
 
   if (not(isRS485))
   {
+    changeColour(0);
     SerialPort.begin(baudrate, SERIAL_8N1, RXD_232, TXD_232);
   }
   else if (isRS485)
   {
+    changeColour(1);
     SerialPort.begin(baudrate, SERIAL_8N1, RXD_485, TXD_485);
   }
   else
@@ -224,13 +228,81 @@ void setup()
 
 void loop()
 {
-  if (not(isRS485))
+  if (couldDetect)
   {
-    String msg = SerialPort.readString();
+    changeColour(2);
+    if (not(isRS485))
+    {
+      String msg = SerialPort.readString();
 
-    if (deviceConnected)
+      if (deviceConnected)
+      {
+
+        char buffer[msg.length() + 1];
+        // msg.toCharArray(buffer, msg.length() + 1);
+        pTxCharacteristic->setValue(msg.c_str());
+        pTxCharacteristic->notify();
+        delay(10); // bluetooth stack will go into congestion, if too many packets are sent
+      }
+      // disconnecting
+      if (!deviceConnected && oldDeviceConnected)
+      {
+        delay(500);                  // give the bluetooth stack the chance to get things ready
+        pServer->startAdvertising(); // restart advertising
+        Serial.println("start advertising");
+        oldDeviceConnected = deviceConnected;
+      }
+      // connecting
+      if (deviceConnected && !oldDeviceConnected)
+      {
+        // do stuff here on connecting
+        oldDeviceConnected = deviceConnected;
+      }
+
+      Serial.println(">" + msg);
+    }
+    else if (isRS485)
     {
 
+      String msg = SerialPort.readString();
+
+      if (deviceConnected)
+      {
+        char buffer[msg.length() + 1];
+        // msg.toCharArray(buffer, msg.length() + 1);
+        pTxCharacteristic->setValue(msg.c_str());
+        pTxCharacteristic->notify();
+        delay(10); // bluetooth stack will go into congestion, if too many packets are sent
+      }
+      // disconnecting
+      if (!deviceConnected && oldDeviceConnected)
+      {
+        delay(500);                  // give the bluetooth stack the chance to get things ready
+        pServer->startAdvertising(); // restart advertising
+        Serial.println("start advertising");
+        oldDeviceConnected = deviceConnected;
+      }
+      // connecting
+      if (deviceConnected && !oldDeviceConnected)
+      {
+        // do stuff here on connecting
+        oldDeviceConnected = deviceConnected;
+      }
+
+      Serial.println(">" + msg);
+    }
+    else
+    {
+      Serial.println("WTF");
+      delay(2000);
+      ESP.restart();
+    }
+  }
+  else
+  {
+    if (deviceConnected)
+    {
+      String msg = "[err 0] Couldn't detect baudrate\n";
       char buffer[msg.length() + 1];
       // msg.toCharArray(buffer, msg.length() + 1);
       pTxCharacteristic->setValue(msg.c_str());
@@ -251,44 +323,9 @@ void loop()
       // do stuff here on connecting
       oldDeviceConnected = deviceConnected;
     }
-
-    Serial.println(">" + msg);
-  }
-  else if (isRS485)
-  {
-
-    String msg = SerialPort.readString();
-
-    if (deviceConnected)
-    {
-      char buffer[msg.length() + 1];
-      // msg.toCharArray(buffer, msg.length() + 1);
-      pTxCharacteristic->setValue(msg.c_str());
-      pTxCharacteristic->notify();
-      delay(10); // bluetooth stack will go into congestion, if too many packets are sent
-    }
-    // disconnecting
-    if (!deviceConnected && oldDeviceConnected)
-    {
-      delay(500);                  // give the bluetooth stack the chance to get things ready
-      pServer->startAdvertising(); // restart advertising
-      Serial.println("start advertising"); 
-      oldDeviceConnected = deviceConnected;
-    }
-    // connecting
-    if (deviceConnected && !oldDeviceConnected)
-    {
-      // do stuff here on connecting
-      oldDeviceConnected = deviceConnected;
-    }
-
-    Serial.println(">" + msg);
-  }
-  else
-  {
-    Serial.println("WTF");
+    Serial.println("couldn't detect any baudrate");
+    changeColour(0);
     delay(2000);
-    ESP.restart();
   }
 }
 
@@ -317,13 +354,13 @@ bool areAnyKnownCharacter(std::string str)
 int detRate(int RXD, int TXD, bool isRS232)
 {
   int count = 0;
-  int bauds[14] = {9600, 115200, 110, 300, 600, 1200, 57600, 2400, 4800, 14400, 19200, 38400, 128000, 256000};
+  int bauds[14] = {9600, 110, 300, 600, 1200, 115200, 57600, 2400, 4800, 14400, 19200, 38400, 128000, 256000};
   for (int baud : bauds)
   {
     // ITERATE OVER RS232
     if (isRS232)
     {
-      changeColour(color[count]);
+      blink(count, true);
       count++;
       Serial.println("Testing: " + String(baud) + " bauds.");
       Serial1.begin(baud, SERIAL_8N1, RXD, TXD);
@@ -332,6 +369,7 @@ int detRate(int RXD, int TXD, bool isRS232)
       {
         Serial.println("Correct configuration found!");
         Serial1.end();
+        couldDetect = true;
         return baud;
       }
       if (count == 5)
@@ -342,7 +380,7 @@ int detRate(int RXD, int TXD, bool isRS232)
     else
     {
       // ITERATE OVER RS485
-      changeColour(color[count]);
+      blink(count, false);
       count++;
       Serial.println("Testing: " + String(baud) + " bauds.");
       Serial1.begin(baud, SERIAL_8N1, RXD, TXD);
@@ -352,6 +390,7 @@ int detRate(int RXD, int TXD, bool isRS232)
       {
         Serial.println("Correct configuration found!");
         Serial1.end();
+        couldDetect = true;
         return baud;
       }
       if (count == 5)
@@ -360,12 +399,40 @@ int detRate(int RXD, int TXD, bool isRS232)
       }
     }
   }
-  return false;
+  couldDetect = false;
+  return 1;
 }
 
-void changeColour(int color[3])
+void changeColour(int n)
 {
-  analogWrite(PIN_RED, color[0]);
-  analogWrite(PIN_GREEN, color[1]);
-  analogWrite(PIN_BLUE, color[2]);
+  setColor(color[n][0], color[n][1], color[n][2]);
+}
+
+void blink(int k, bool isRS232)
+{
+  if (isRS232)
+  {
+    if (k % 2 == 0)
+    {
+      changeColour(0);
+    }else{
+      changeColour(4);
+    }
+  }else{
+    if (k % 2 == 0)
+    {
+      changeColour(1);
+    }else{
+      changeColour(4);
+    }
+  }
+}
+
+void setColor(int R, int G, int B) {
+  R = 255-R;
+  G = 255-G;
+  B = 255-B;
+  analogWrite(PIN_RED,   R);
+  analogWrite(PIN_GREEN, G);
+  analogWrite(PIN_BLUE,  B);
 }
