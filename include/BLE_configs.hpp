@@ -13,6 +13,36 @@ BLEServer *pServer = NULL;
 BLECharacteristic *pTxCharacteristic;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
+char value[50] = "Default";
+
+#define customService BLEUUID((uint16_t)0x1700)
+BLECharacteristic customCharacteristic(BLEUUID((uint16_t)0x1A00), BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
+
+class MyCharacteristicCallbacks : public BLECharacteristicCallbacks
+{
+    void onWrite(BLECharacteristic *customCharacteristic)
+    {
+        std::string rcvString = customCharacteristic->getValue();
+        if (rcvString.length() > 0)
+        {
+            Serial.println("Value Received from BLE: ");
+            for (int i = 0; i < rcvString.length(); ++i)
+            {
+                Serial.print(rcvString[i]);
+                value[i] = rcvString[i];
+            }
+            for (int i = rcvString.length(); i < 50; ++i)
+            {
+                value[i] = NULL;
+            }
+            customCharacteristic->setValue((char *)&value);
+        }
+        else
+        {
+            Serial.println("Empty Value Received!");
+        }
+    }
+};
 
 class MyServerCallbacks : public BLEServerCallbacks
 {
@@ -113,6 +143,10 @@ void BLE_setup()
 
     pTxCharacteristic->addDescriptor(new BLE2902());
 
+    // Custom characteristic
+    customCharacteristic.setCallbacks(new MyCharacteristicCallbacks());
+    pServer->getAdvertising()->addServiceUUID(customService);
+
     BLECharacteristic *pRxCharacteristic = pService->createCharacteristic(
         CHARACTERISTIC_UUID_RX,
         BLECharacteristic::PROPERTY_WRITE);
@@ -125,6 +159,8 @@ void BLE_setup()
     // Start advertising
     pServer->getAdvertising()->start();
     Serial.println("Waiting a client lpm...");
+
+    customCharacteristic.setValue((char*)&value);
 
     // Security Stuff
     BLESecurity *pSecurity = new BLESecurity(); // pin
