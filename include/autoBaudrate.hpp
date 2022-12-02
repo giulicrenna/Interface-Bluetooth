@@ -36,6 +36,10 @@ bool areAnyKnownCharacter(std::string str)
         {
             return true;
         }
+        else if (str.length() >= 8)
+        {
+            return true;
+        }
         else
         {
             return false;
@@ -60,8 +64,9 @@ int detRate(int RXD, int TXD, bool isRS232)
             BLE_notify("Testing: " + String(baud) + " bauds.\n");
             Serial.end();
             Serial1.begin(baud, SERIAL_8N1, RXD, TXD);
-            Serial1.setTimeout(1500);
+            Serial1.setTimeout(2000);
             String incoming = Serial1.readString();
+        BLE_notify("> " + incoming + "\n");
             if (areAnyKnownCharacter(incoming.c_str()))
             {
                 BLE_notify("Correct config found at RS232\n");
@@ -80,11 +85,11 @@ int detRate(int RXD, int TXD, bool isRS232)
             count++;
             //Serial.println("Testing: " + String(baud) + " bauds.");
             BLE_notify("Testing: " + String(baud) + " bauds.\n");
-            Serial.end();
             Serial1.begin(baud, SERIAL_8N1, RXD, TXD);
-            Serial1.setTimeout(1500);
+            Serial1.setTimeout(2000);
             digitalWrite(TX, LOW);
             String incoming = Serial1.readString();
+            BLE_notify("> " + incoming + "\n");
             if (areAnyKnownCharacter(incoming.c_str()))
             {
                 BLE_notify("Correct confog found at RS485\n");
