@@ -1,3 +1,5 @@
+#define OLDBT
+
 #define TR GPIO_NUM_4 //receiver enable
 #define TXD_485 GPIO_NUM_17
 #define RXD_485 GPIO_NUM_16
