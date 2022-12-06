@@ -11,10 +11,10 @@
 #include <vector>
 #include <cstdlib>
 
+#include <HardwareSerial.h>
 #include "global.hpp"
 #include "BLE_configs.hpp"
 #include "autoBaudrate.hpp"
-#include <HardwareSerial.h>
 
 typedef enum
 {

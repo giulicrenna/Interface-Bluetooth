@@ -7,10 +7,10 @@ myLeds leds(PIN_RED, PIN_GREEN, PIN_BLUE);
 
 int detRate(int RXD, int TXD, bool isRS232 = true);
 
+int numbers[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
 class autoBAudrate
 {
-public: 
-  
+public:
     int rxd_pin, txd_pin;
     bool isRS232_;
     autoBAudrate(int RXD, int TXD, bool isRS232)
@@ -25,7 +25,6 @@ private:
 
 bool areAnyKnownCharacter(std::string str)
 {
-    int numbers[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
     for (int num : numbers)
     {
         if (str.find("\r") != std::string::npos)
@@ -33,6 +32,10 @@ bool areAnyKnownCharacter(std::string str)
             return true;
         }
         else if (str.find("\n") != std::string::npos)
+        {
+            return true;
+        }
+        else if (str.find("-") != std::string::npos)
         {
             return true;
         }
@@ -48,6 +51,44 @@ bool areAnyKnownCharacter(std::string str)
     return false;
 }
 
+int testRS232(int baud, int rx_, int tx_, bool isInverted = false)
+{
+    // Serial.println("Testing: " + String(baud) + " bauds.");
+    BLE_notify("Testing: " + String(baud) + " bauds.\n");
+    Serial.end();
+    Serial1.begin(baud, SERIAL_8N1, rx_, tx_, isInverted);
+    Serial1.setTimeout(2000);
+    String incoming = Serial1.readString();
+    BLE_notify("> " + incoming + "\n");
+    if (areAnyKnownCharacter(incoming.c_str()))
+    {
+        BLE_notify("Correct config found at RS232\n");
+        Serial1.end();
+        return baud;
+    }
+    return 0;
+}
+
+int testRS485(int baud, int rx_, int tx_, bool isinverted = true)
+{
+    // ITERATE OVER RS485
+    // Serial.println("Testing: " + String(baud) + " bauds.");
+    BLE_notify("Testing: " + String(baud) + " bauds.\n");
+    Serial1.begin(baud, SERIAL_8N1, rx_, tx_, isinverted);
+    Serial1.setTimeout(2000);
+    digitalWrite(TX, LOW);
+    String incoming = Serial1.readString();
+    BLE_notify("> " + incoming + "\n");
+    if (areAnyKnownCharacter(incoming.c_str()))
+    {
+        BLE_notify("Correct confog found at RS485\n");
+        Serial1.end();
+        return baud;
+    }
+
+    return 0;
+}
+
 // Auto Baudrate
 int detRate(int RXD, int TXD, bool isRS232)
 {
@@ -58,21 +99,12 @@ int detRate(int RXD, int TXD, bool isRS232)
         // ITERATE OVER RS232
         if (isRS232)
         {
-            leds.blink(count, true);
             count++;
-            //Serial.println("Testing: " + String(baud) + " bauds.");
-            BLE_notify("Testing: " + String(baud) + " bauds.\n");
-            Serial.end();
-            Serial1.begin(baud, SERIAL_8N1, RXD, TXD);
-            Serial1.setTimeout(2000);
-            String incoming = Serial1.readString();
-        BLE_notify("> " + incoming + "\n");
-            if (areAnyKnownCharacter(incoming.c_str()))
-            {
-                BLE_notify("Correct config found at RS232\n");
-                Serial1.end();
-                return baud;
-            }
+            leds.blink(count, false);
+            int baud0 = testRS232(baud, RXD, TXD);
+            int baud1 = testRS232(baud, RXD, TXD, true);
+            if(baud0 != 0){return baud0;}
+            if(baud1 != 0){return baud1;}
             if (count == 5)
             {
                 count = 0;
@@ -80,22 +112,12 @@ int detRate(int RXD, int TXD, bool isRS232)
         }
         else
         {
-            // ITERATE OVER RS485
-            leds.blink(count, false);
             count++;
-            //Serial.println("Testing: " + String(baud) + " bauds.");
-            BLE_notify("Testing: " + String(baud) + " bauds.\n");
-            Serial1.begin(baud, SERIAL_8N1, RXD, TXD);
-            Serial1.setTimeout(2000);
-            digitalWrite(TX, LOW);
-            String incoming = Serial1.readString();
-            BLE_notify("> " + incoming + "\n");
-            if (areAnyKnownCharacter(incoming.c_str()))
-            {
-                BLE_notify("Correct confog found at RS485\n");
-                Serial1.end();
-                return baud;
-            }
+            leds.blink(count, false);
+            int baud0 = testRS485(baud, RXD, TXD);
+            int baud1 = testRS485(baud, RXD, TXD, true);
+            if(baud0 != 0){return baud0;}
+            if(baud1 != 0){return baud1;}
             if (count == 5)
             {
                 count = 0;
