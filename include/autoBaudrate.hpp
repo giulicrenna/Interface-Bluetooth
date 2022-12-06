@@ -7,101 +7,143 @@ myLeds leds(PIN_RED, PIN_GREEN, PIN_BLUE);
 
 int detRate(int RXD, int TXD, bool isRS232 = true);
 
-class autoBAudrate
+class autoBaudrate
 {
-public: 
-  
+private:
+    int count = 0;
+    int bauds[14] = {9600, 110, 300, 600, 1200, 115200, 57600, 2400, 4800, 14400, 19200, 38400, 128000, 256000};
     int rxd_pin, txd_pin;
-    bool isRS232_;
-    autoBAudrate(int RXD, int TXD, bool isRS232)
+    int currentBaudTest = 0;
+public:
+    autoBaudrate(int RXD, int TXD)
     {
         rxd_pin = RXD;
         txd_pin = TXD;
-        isRS232_ = isRS232;
     }
 
-private:
-};
-
-bool areAnyKnownCharacter(std::string str)
-{
-    int numbers[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-    for (int num : numbers)
+    int test232(bool isInverted = false)
     {
-        if (str.find("\r") != std::string::npos)
+        Serial.end();
+        leds.blink(count, true);
+        count++;
+        // Serial.println("Testing: " + String(baud) + " bauds.");
+        BLE_notify("Testing: " + String(currentBaudTest) + " bauds.\n");
+        Serial1.begin(currentBaudTest, SERIAL_8N1, rxd_pin, txd_pin, isInverted, 1000);
+        // Serial1.setTimeout(2000);
+        char buffer0[30];
+        int len1 = Serial1.readBytes(buffer0, 50);
+        for (int i = 0; i < len1; i++)
         {
-            return true;
-        }
-        else if (str.find("\n") != std::string::npos)
-        {
-            return true;
-        }
-        else if (str.length() >= 8)
-        {
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
-    return false;
-}
-
-// Auto Baudrate
-int detRate(int RXD, int TXD, bool isRS232)
-{
-    int count = 0;
-    int bauds[14] = {9600, 110, 300, 600, 1200, 115200, 57600, 2400, 4800, 14400, 19200, 38400, 128000, 256000};
-    for (int baud : bauds)
-    {
-        // ITERATE OVER RS232
-        if (isRS232)
-        {
-            leds.blink(count, true);
-            count++;
-            //Serial.println("Testing: " + String(baud) + " bauds.");
-            BLE_notify("Testing: " + String(baud) + " bauds.\n");
-            Serial.end();
-            Serial1.begin(baud, SERIAL_8N1, RXD, TXD);
-            Serial1.setTimeout(2000);
-            String incoming = Serial1.readString();
-        BLE_notify("> " + incoming + "\n");
-            if (areAnyKnownCharacter(incoming.c_str()))
+            if (areAnyKnownCharacter(String(buffer0[i])))
             {
                 BLE_notify("Correct config found at RS232\n");
                 Serial1.end();
-                return baud;
-            }
-            if (count == 5)
-            {
-                count = 0;
+                return currentBaudTest;
             }
         }
-        else
+        if (count == 5)
         {
-            // ITERATE OVER RS485
-            leds.blink(count, false);
-            count++;
-            //Serial.println("Testing: " + String(baud) + " bauds.");
-            BLE_notify("Testing: " + String(baud) + " bauds.\n");
-            Serial1.begin(baud, SERIAL_8N1, RXD, TXD);
-            Serial1.setTimeout(2000);
-            digitalWrite(TX, LOW);
-            String incoming = Serial1.readString();
-            BLE_notify("> " + incoming + "\n");
-            if (areAnyKnownCharacter(incoming.c_str()))
+            count = 0;
+        }
+        return 0;
+    }
+
+    int test485(bool isInverted = false)
+    {
+        leds.blink(count, true);
+        count++;
+        // Serial.println("Testing: " + String(baud) + " bauds.");
+        BLE_notify("Testing: " + String(currentBaudTest) + " bauds.\n");
+        Serial.end();
+        Serial1.begin(currentBaudTest, SERIAL_8N1, rxd_pin, txd_pin, isInverted, 1000);
+        digitalWrite(TX, LOW);
+        // Serial1.setTimeout(2000);
+        char buffer0[30];
+        int len1 = Serial1.readBytes(buffer0, 50);
+        for (int i = 0; i < len1; i++)
+        {
+            if (areAnyKnownCharacter(String(buffer0[i])))
             {
-                BLE_notify("Correct confog found at RS485\n");
+                BLE_notify("Correct config found at RS232\n");
                 Serial1.end();
-                return baud;
-            }
-            if (count == 5)
-            {
-                count = 0;
+                return currentBaudTest;
             }
         }
+        if (count == 5)
+        {
+            count = 0;
+        }
+        return 0;
     }
-    BLE_notify("Failed to detect any baud at the serial ports (RS232/RS485)\n");
-    return 1;
-}
+
+    bool areAnyKnownCharacter(String str_)
+    {
+        int numbers[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+        std::string str = std::string(str_.c_str());
+        for (int num : numbers)
+        {
+            if (str.find("\r") != std::string::npos)
+            {
+                return true;
+            }
+            else if (str.find("\n") != std::string::npos)
+            {
+                return true;
+            }
+            else if (str.find("=") != std::string::npos)
+            {
+                return true;
+            }
+            else if (str.find("-") != std::string::npos)
+            {
+                return true;
+            }
+            else if (str.find(String(num).c_str()) != std::string::npos)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    // Auto Baudrate
+    int detRate(bool isRS232)
+    {
+        for (int baud : bauds)
+        {
+            // ITERATE OVER RS232
+            if (isRS232)
+            {
+                currentBaudTest = baud;
+                if (test232() != 0)
+                {
+                    return currentBaudTest;
+                }
+                if (test232(true) != 0)
+                {
+                    return currentBaudTest;
+                }
+                currentBaudTest = 0;
+            }
+            else
+            {
+                currentBaudTest = baud;
+                if (test485() != 0)
+                {
+                    return currentBaudTest;
+                }
+                if (test485(true) != 0)
+                {
+                    return currentBaudTest;
+                }
+                currentBaudTest = 0;
+            }
+        }
+        BLE_notify("Failed to detect any baud at the serial ports (RS232/RS485)\n");
+        return 1;
+    }
+};

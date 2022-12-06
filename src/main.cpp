@@ -24,6 +24,8 @@ typedef enum
     SEND_FAIL
 } States;
 
+autoBaudrate myBauds232{RXD_232, TXD_232};
+autoBaudrate myBauds485{RXD_485, TXD_485};
 States currentState = DETERMINATE_BAUD_232;
 HardwareSerial SerialPort(1);
 
@@ -48,7 +50,7 @@ void task2(void *parameters)
         {
         case DETERMINATE_BAUD_232:
         {
-            int baudrate = detRate(RXD_232, TXD_232, true);
+            int baudrate = myBauds232.detRate(true);
 
             if (baudrate != 1)
             {
@@ -68,7 +70,7 @@ void task2(void *parameters)
 
         case DETERMINATE_BAUD_485:
         {
-            int baudrate = detRate(RXD_485, TXD_485, false);
+            int baudrate = myBauds232.detRate(false);
             digitalWrite(TR, LOW); // Transmitter: LOW, Receiver: HIGH
 
             if (baudrate != 1)
