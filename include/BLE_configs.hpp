@@ -1,54 +1,18 @@
-#ifndef OLDBT
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
-#endif
-#ifdef OLDBT
-#include <BluetoothSerial.h>
-#endif
 
-#ifndef OLDBT
 /* define the UUID that our custom service will use */
-#define SERVICE_UUID "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
-#define CHARACTERISTIC_UUID "6e400002‑b5a3‑f393‑e0a9‑e50e24dcca9e"
-#define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
-#define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+#define SERVICE_UUID "0000FFE0-0000-1000-8000-00805F9B34FB"
+#define CHARACTERISTIC_UUID "0000FFE1-0000-1000-8000-00805F9B34FB"
+#define CHARACTERISTIC_UUID_RX "0000FFE2-0000-1000-8000-00805F9B34FB"
+#define CHARACTERISTIC_UUID_TX "0000FFE3-0000-1000-8000-00805F9B34FB"
 
 BLEServer *pServer = NULL;
 BLECharacteristic *pTxCharacteristic;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
-char value[50] = "Default";
-
-#define customService BLEUUID((uint16_t)0x1700)
-BLECharacteristic customCharacteristic("6e400003‑b5a3‑f393‑e0a9‑e50e24dcca9e", BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
-
-class MyCharacteristicCallbacks : public BLECharacteristicCallbacks
-{
-    void onWrite(BLECharacteristic *customCharacteristic)
-    {
-        std::string rcvString = customCharacteristic->getValue();
-        if (rcvString.length() > 0)
-        {
-            Serial.println("Value Received from BLE: ");
-            for (int i = 0; i < rcvString.length(); ++i)
-            {
-                Serial.print(rcvString[i]);
-                value[i] = rcvString[i];
-            }
-            for (int i = rcvString.length(); i < 50; ++i)
-            {
-                value[i] = NULL;
-            }
-            customCharacteristic->setValue((char *)&value);
-        }
-        else
-        {
-            Serial.println("Empty Value Received!");
-        }
-    }
-};
 
 class MyServerCallbacks : public BLEServerCallbacks
 {
@@ -149,10 +113,6 @@ void BLE_setup()
 
     pTxCharacteristic->addDescriptor(new BLE2902());
 
-    // Custom characteristic
-    customCharacteristic.setCallbacks(new MyCharacteristicCallbacks());
-    pServer->getAdvertising()->addServiceUUID(customService);
-
     BLECharacteristic *pRxCharacteristic = pService->createCharacteristic(
         CHARACTERISTIC_UUID_RX,
         BLECharacteristic::PROPERTY_WRITE);
@@ -165,8 +125,6 @@ void BLE_setup()
     // Start advertising
     pServer->getAdvertising()->start();
     Serial.println("Waiting a client lpm...");
-
-    customCharacteristic.setValue((char *)&value);
 
     // Security Stuff
     BLESecurity *pSecurity = new BLESecurity(); // pin
@@ -225,47 +183,3 @@ void BLE_notify(String message = "")
         oldDeviceConnected = deviceConnected;
     }
 }
-
-#endif
-
-#ifdef OLDBT
-
-#if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
-#error Bluetooth is not enabled! Please run `make menuconfig` to and enable it
-#endif
-
-BluetoothSerial SerialBT;
-boolean confirmRequestPending = true;
-
-void BTConfirmRequestCallback(uint32_t numVal)
-{
-    confirmRequestPending = true;
-}
-
-void BTAuthCompleteCallback(boolean success)
-{
-    confirmRequestPending = false;
-    if (success)
-    {
-        // Serial.println("Pairing success!!");
-    }
-    else
-    {
-        //   Serial.println("Pairing failed, rejected by user!!");
-    }
-}
-
-void BLE_setup()
-{
-    //SerialBT.enableSSP();
-    //SerialBT.onConfirmRequest(BTConfirmRequestCallback);
-    //SerialBT.onAuthComplete(BTAuthCompleteCallback);
-  //  SerialBT.setPin("7419");
-    SerialBT.begin(deviceName,true);
-  //  SerialBT.setPin("7419");
-}
-void BLE_notify(String message = "")
-{
-    SerialBT.println(message);
-}
-#endif
