@@ -35,11 +35,6 @@ bool areAnyKnownCharacter(std::string str)
         {
             return true;
         }
-<<<<<<< HEAD
-        else if (str.find("-") != std::string::npos)
-        {
-            return true;
-        }
         else if (str.length() >= 8)
         {
             return true;
