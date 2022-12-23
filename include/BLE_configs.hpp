@@ -13,6 +13,39 @@ BLEServer *pServer = NULL;
 BLECharacteristic *pTxCharacteristic;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
+<<<<<<< HEAD
+=======
+char value[50] = "Default";
+
+#define customService BLEUUID((uint16_t)0x1700)
+BLECharacteristic customCharacteristic(BLEUUID((uint16_t)0x1A00), BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
+
+class MyCharacteristicCallbacks : public BLECharacteristicCallbacks
+{
+    void onWrite(BLECharacteristic *customCharacteristic)
+    {
+        std::string rcvString = customCharacteristic->getValue();
+        if (rcvString.length() > 0)
+        {
+            Serial.println("Value Received from BLE: ");
+            for (int i = 0; i < rcvString.length(); ++i)
+            {
+                Serial.print(rcvString[i]);
+                value[i] = rcvString[i];
+            }
+            for (int i = rcvString.length(); i < 50; ++i)
+            {
+                value[i] = NULL;
+            }
+            customCharacteristic->setValue((char *)&value);
+        }
+        else
+        {
+            Serial.println("Empty Value Received!");
+        }
+    }
+};
+>>>>>>> parent of 926e4d3 (Old BT support)
 
 class MyServerCallbacks : public BLEServerCallbacks
 {
@@ -126,6 +159,11 @@ void BLE_setup()
     pServer->getAdvertising()->start();
     Serial.println("Waiting a client lpm...");
 
+<<<<<<< HEAD
+=======
+    customCharacteristic.setValue((char*)&value);
+
+>>>>>>> parent of 926e4d3 (Old BT support)
     // Security Stuff
     BLESecurity *pSecurity = new BLESecurity(); // pin
 
