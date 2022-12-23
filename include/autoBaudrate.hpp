@@ -39,8 +39,6 @@ bool areAnyKnownCharacter(std::string str)
         {
             return true;
         }
-=======
->>>>>>> parent of f56d8df (Multi core update)
         else
         {
             return false;
@@ -98,13 +96,6 @@ int detRate(int RXD, int TXD, bool isRS232)
         if (isRS232)
         {
             count++;
-<<<<<<< HEAD
-            leds.blink(count, false);
-            int baud0 = testRS232(baud, RXD, TXD);
-            int baud1 = testRS232(baud, RXD, TXD, true);
-            if(baud0 != 0){return baud0;}
-            if(baud1 != 0){return baud1;}
-=======
             //Serial.println("Testing: " + String(baud) + " bauds.");
             BLE_notify("Testing: " + String(baud) + " bauds.\n");
             Serial.end();
@@ -117,7 +108,6 @@ int detRate(int RXD, int TXD, bool isRS232)
                 Serial1.end();
                 return baud;
             }
->>>>>>> parent of f56d8df (Multi core update)
             if (count == 5)
             {
                 count = 0;
@@ -126,27 +116,11 @@ int detRate(int RXD, int TXD, bool isRS232)
         else
         {
             count++;
-<<<<<<< HEAD
             leds.blink(count, false);
             int baud0 = testRS485(baud, RXD, TXD);
             int baud1 = testRS485(baud, RXD, TXD, true);
             if(baud0 != 0){return baud0;}
             if(baud1 != 0){return baud1;}
-=======
-            //Serial.println("Testing: " + String(baud) + " bauds.");
-            BLE_notify("Testing: " + String(baud) + " bauds.\n");
-            Serial.end();
-            Serial1.begin(baud, SERIAL_8N1, RXD, TXD);
-            Serial1.setTimeout(1500);
-            digitalWrite(TX, LOW);
-            String incoming = Serial1.readString();
-            if (areAnyKnownCharacter(incoming.c_str()))
-            {
-                BLE_notify("Correct confog found at RS485\n");
-                Serial1.end();
-                return baud;
-            }
->>>>>>> parent of f56d8df (Multi core update)
             if (count == 5)
             {
                 count = 0;
