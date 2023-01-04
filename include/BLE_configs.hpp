@@ -13,6 +13,8 @@ BLEServer *pServer = NULL;
 BLECharacteristic *pTxCharacteristic;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
+<<<<<<< HEAD
+=======
 char value[50] = "Default";
 
 #define customService BLEUUID((uint16_t)0x1700)
@@ -43,6 +45,7 @@ class MyCharacteristicCallbacks : public BLECharacteristicCallbacks
         }
     }
 };
+>>>>>>> parent of 926e4d3 (Old BT support)
 
 class MyServerCallbacks : public BLEServerCallbacks
 {
@@ -143,10 +146,6 @@ void BLE_setup()
 
     pTxCharacteristic->addDescriptor(new BLE2902());
 
-    // Custom characteristic
-    customCharacteristic.setCallbacks(new MyCharacteristicCallbacks());
-    pServer->getAdvertising()->addServiceUUID(customService);
-
     BLECharacteristic *pRxCharacteristic = pService->createCharacteristic(
         CHARACTERISTIC_UUID_RX,
         BLECharacteristic::PROPERTY_WRITE);
@@ -160,8 +159,11 @@ void BLE_setup()
     pServer->getAdvertising()->start();
     Serial.println("Waiting a client lpm...");
 
+<<<<<<< HEAD
+=======
     customCharacteristic.setValue((char*)&value);
 
+>>>>>>> parent of 926e4d3 (Old BT support)
     // Security Stuff
     BLESecurity *pSecurity = new BLESecurity(); // pin
 
