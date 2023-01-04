@@ -10,33 +10,42 @@
 #include <Arduino.h>
 #include <vector>
 #include <cstdlib>
+#include <HardwareSerial.h>
 
 #include "global.hpp"
 #include "BLE_configs.hpp"
 #include "autoBaudrate.hpp"
-#include <HardwareSerial.h>
+#include "rgbLeds.hpp"
 
 typedef enum
 {
-    DETERMINATE_BAUD_232,
-    DETERMINATE_BAUD_485,
-    SEND_OK_DATA,
+    DETERMINATE_BAUD_232_NI,
+    DETERMINATE_BAUD_232_I,
+    DETERMINATE_BAUD_485_NI,
+    DETERMINATE_BAUD_485_I,
+    READ_DATA,
     SEND_FAIL
 } States;
 
-autoBaudrate myBauds232{RXD_232, TXD_232};
-autoBaudrate myBauds485{RXD_485, TXD_485};
-States currentState = DETERMINATE_BAUD_232;
+States currentState = DETERMINATE_BAUD_232_NI;
 HardwareSerial SerialPort(1);
+myLeds leds{GPIO_NUM_27,
+            GPIO_NUM_26,
+            GPIO_NUM_25};
 
 String msg = "";
+int baud;
 
 void task1(void *param)
 {
     for (;;)
     {
-        if(msg != ""){
+        if (msg != "")
+        {
             BLE_notify(msg);
+#ifdef DEBUG
+// Serial.println();
+#endif
         }
         vTaskDelay(100);
     }
@@ -48,52 +57,84 @@ void task2(void *parameters)
     {
         switch (currentState)
         {
-        case DETERMINATE_BAUD_232:
+        case DETERMINATE_BAUD_232_NI:
         {
-            int baudrate = myBauds232.detRate(true);
-
-            if (baudrate != 1)
+            int baud = optimalBaudrateDetection(false, RXD_232, TXD_232);
+            if (baud != 0)
             {
-                digitalWrite(TR, HIGH); // Transmitter: HIGH, Receiver: LOW
-                leds.changeColour(0);
-                SerialPort.begin(baudrate, SERIAL_8N1, RXD_232, TXD_232);
-                currentState = SEND_OK_DATA;
+                Serial.begin(baud, SERIAL_8N1, RXD_232, TXD_232, false);
+                currentState = READ_DATA;
                 break;
             }
             else
             {
-                currentState = DETERMINATE_BAUD_485;
+#ifdef DEBUG
+                BLE_notify("Could not detect at RS232 not inverted");
+#endif
+                currentState = DETERMINATE_BAUD_232_I;
                 break;
             }
-            break;
         }
-
-        case DETERMINATE_BAUD_485:
+        case DETERMINATE_BAUD_232_I:
         {
-            int baudrate = myBauds232.detRate(false);
-            digitalWrite(TR, LOW); // Transmitter: LOW, Receiver: HIGH
-
-            if (baudrate != 1)
+            int baud = optimalBaudrateDetection(true, RXD_232, TXD_232);
+            if (baud != 0)
             {
-                leds.changeColour(1);
-                SerialPort.begin(baudrate, SERIAL_8N1, RXD_485, TXD_485);
-                currentState = SEND_OK_DATA;
+                Serial.begin(baud, SERIAL_8N1, RXD_232, TXD_232, true);
+                currentState = READ_DATA;
                 break;
             }
             else
             {
-                currentState = SEND_FAIL;
+#ifdef DEBUG
+                BLE_notify("Could not detect at RS232 inverted");
+#endif
+                currentState = DETERMINATE_BAUD_485_NI;
                 break;
             }
-            break;
         }
-        case SEND_OK_DATA:
+        case DETERMINATE_BAUD_485_NI:
         {
-            leds.changeColour(2);
-            msg = SerialPort.readString();
+            int baud = optimalBaudrateDetection(false, RXD_485, TXD_485);
+            if (baud != 0)
+            {
+                Serial.begin(baud, SERIAL_8N1, RXD_485, TXD_485, false);
+                currentState = READ_DATA;
+                break;
+            }
+            else
+            {
+#ifdef DEBUG
+                BLE_notify("Could not detect at RS485 not inverted");
+#endif
+                currentState = DETERMINATE_BAUD_485_NI;
+                break;
+            }
+        }
+        case DETERMINATE_BAUD_485_I:
+        {
+            int baud = optimalBaudrateDetection(true, RXD_485, TXD_485);
+            if (baud != 0)
+            {
+                Serial.begin(baud, SERIAL_8N1, RXD_485, TXD_485, true);
+                currentState = READ_DATA;
+                break;
+            }
+            else
+            {
+#ifdef DEBUG
+                BLE_notify("Could not detect at RS485 inverted");
+#endif
+                currentState = DETERMINATE_BAUD_232_NI;
+                break;
+            }
+        }
+        case READ_DATA:
+        {
+            leds.changeColour(random(0, 4));
+            msg = Serial.readString();
             break;
         }
-
         case SEND_FAIL:
         {
             msg = "[err 0] Couldn't detect any baudrate\n";
@@ -129,6 +170,9 @@ void setup()
         1);
     BLE_setup();
     leds.setupLed();
+#ifdef DEBUG
+    delay(1000);
+#endif
 }
 
 void loop()
