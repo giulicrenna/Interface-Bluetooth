@@ -199,11 +199,11 @@ void BLE_setup()
     Serial.println("Characteristic defined! Now you can read it in your phone!");
 }
 
-void BLE_notify(String message = "")
+void BLE_notify(const char* message = "")
 {
     if (deviceConnected)
     {
-        pTxCharacteristic->setValue(message.c_str());
+        pTxCharacteristic->setValue(message);
         pTxCharacteristic->notify();
         delay(10); // bluetooth stack will go into congestion, if too many packets are sent
     }
