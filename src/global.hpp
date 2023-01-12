@@ -1,12 +1,5 @@
 #define __ARDUINO__
 #define DEBUG
-<<<<<<< Updated upstream
-
-#define TR GPIO_NUM_4 //receiver enable
-#define PIN_RED    GPIO_NUM_27
-#define PIN_GREEN  GPIO_NUM_26
-#define PIN_BLUE   GPIO_NUM_25
-=======
 #define RE GPIO_NUM_4 // receiver enable
 #define PIN_RED GPIO_NUM_27
 #define PIN_GREEN GPIO_NUM_26
@@ -24,7 +17,6 @@ typedef enum
     READ_DATA,
     SEND_FAIL
 } States;
->>>>>>> Stashed changes
 
 int TXD_485 = GPIO_NUM_17;
 int RXD_485 = GPIO_NUM_16;
