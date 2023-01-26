@@ -99,7 +99,7 @@ class MySecurity : public BLESecurityCallbacks
 
         ESP_LOGI(LOG_TAG, "The passkey YES/NO number:%d", pass_key);
 
-        vTaskDelay(5000);
+        vTaskDelay(2000);
 
         return true;
     }
@@ -154,7 +154,6 @@ void BLE_setup()
 
     // Start advertising
     pServer->getAdvertising()->start();
-    Serial.println("Waiting a client lpm...");
 
     customCharacteristic.setValue((char*)&value);
 
