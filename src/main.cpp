@@ -28,12 +28,19 @@ void task1(void *param)
 {
     for (;;)
     {
-        BLE_notify(msg.c_str());
-#ifdef DEBUG
-// Serial.println();
-#endif
+        try
+        {
+            if (msg != "")
+            {
+                BLE_notify(msg.c_str());
+            }
+            blink();
+        }
+        catch (const std::exception &e)
+        {
+        }
+        vTaskDelay(500 / portTICK_PERIOD_MS);
     }
-    vTaskDelay(10);
 }
 
 void task2(void *parameters)
@@ -176,27 +183,26 @@ void task2(void *parameters)
             {
                 BLE_notify(String((char)Serial.read()).c_str());
             }
-            leds.changeColour(random(0, 4));
             break;
         }
         case SEND_FAIL:
         {
             msg = "[err 0] Couldn't detect any baudrate\n";
-            leds.changeColour(0);
-            delay(3000);
+            delay(1000);
             ESP.restart();
             break;
         }
-
         default:
             break;
         }
-        vTaskDelay(10);
+
+        vTaskDelay(500 / portTICK_PERIOD_MS);
     }
 }
 
 void setup()
 {
+    BLE_setup();
     setupFileSystem();
     xTaskCreatePinnedToCore(
         task1,
@@ -214,10 +220,8 @@ void setup()
         1,
         NULL,
         1);
-    BLE_setup();
-    leds.setupLed();
+    pinMode(PIN_RED, OUTPUT);
     pinMode(RE, OUTPUT);
-    pinMode(LED_BUILTIN, OUTPUT);
 }
 
 void loop()

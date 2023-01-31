@@ -7,6 +7,8 @@ GREEN
 PINK
 BLACK
 */
+int ledState = LOW;
+int previousMillis = 0;
 
 class myLeds
 {
@@ -71,5 +73,20 @@ public:
         analogWrite(PIN_BLUE, B);
     }
 };
+
+void blink()
+{
+    if (millis() - previousMillis >= 500)
+    {
+        // if the LED is off turn it on and vice-versa:
+        ledState = (ledState == LOW) ? HIGH : LOW;
+
+        // set the LED with the ledState of the variable:
+        digitalWrite(GPIO_NUM_27, ledState);
+
+        // save the last time you blinked the LED
+        previousMillis = millis();
+    }
+}
 
 #endif

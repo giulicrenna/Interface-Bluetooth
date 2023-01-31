@@ -199,7 +199,7 @@ void BLE_notify(const char* message = "")
     {
         pTxCharacteristic->setValue(message);
         pTxCharacteristic->notify();
-        delay(10); // bluetooth stack will go into congestion, if too many packets are sent
+        delay(5); // bluetooth stack will go into congestion, if too many packets are sent
     }
     // disconnecting
     if (!deviceConnected && oldDeviceConnected)
