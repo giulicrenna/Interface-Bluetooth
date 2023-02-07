@@ -16,10 +16,11 @@
 #include "global.hpp"
 #include "functions.hpp"
 #include "BLE_configs.hpp"
+#include "traditionalBlue.hpp"
 #include "autoBaudrate.hpp"
 #include "rgbLeds.hpp"
 
-States currentState = DETERMINATE_BAUD_232_NI;
+States currentState = BLUE_PAIRING;
 myLeds leds{GPIO_NUM_27,
             GPIO_NUM_26,
             GPIO_NUM_25};
@@ -49,131 +50,141 @@ void task2(void *parameters)
     {
         switch (currentState)
         {
+        case BLUE_PAIRING:
+        {
+            bool couldConn = false;
+            int cnt = 0;
+            Serial.begin(115200);
+            while (cnt < 15000)
+            {
+                couldConn = confirmAuth();
+                if (couldConn)
+                {
+                    break;
+                }
+                if (isAnyone())
+                {
+                    Serial.print("\nClient connected...\n");
+                    couldConn = true;
+                    break;
+                }
+                delay(2);
+                cnt += 2;
+                Serial.print("*");
+            }
+            if (!couldConn)
+            {
+                Serial.print("\n[err 3] Could not pair device, restarting board...\n");
+                Serial.end();
+                ESP.restart();
+            }
+            Serial.end();
+            currentState = BLUE_ASK_KEY;
+            break;
+        }
+        case BLUE_ASK_KEY:
+        {
+            if (askForKey(pinc))
+            {
+                SerialBT.println("Succesfully validated");
+                currentState = SEND_TEST;
+                break;
+            }
+            SerialBT.println("[err 4] incorrect key");
+            break;
+        }
         case DETERMINATE_BAUD_232_NI:
         {
-            if (temporalData.getInt("baud", 0) == 0)
+            UARTparam.baud = optimalBaudrateDetection(false, RXD_232, TXD_232);
+            if (UARTparam.baud == 0)
             {
-                UARTparam.baud = optimalBaudrateDetection(false, RXD_232, TXD_232);
-                if (UARTparam.baud != 0)
-                {
-                    UARTparam.inverted = false;
-                    UARTparam.rxd = RXD_232;
-                    UARTparam.txd = TXD_232;
-                    currentState = READ_DATA;
-                    loadData(UARTparam.inverted, UARTparam.rxd, UARTparam.txd, UARTparam.baud);
-                    break;
-                }
-                else
-                {
 #ifdef DEBUG
-                    BLE_notify("Could not detect at RS232 not inverted");
+                BLE_notify("Could not detect at RS232 not inverted");
 #endif
-                    currentState = DETERMINATE_BAUD_232_I;
-                    break;
-                }
+                currentState = DETERMINATE_BAUD_232_I;
+                break;
             }
             else
             {
+                UARTparam.inverted = false;
+                UARTparam.rxd = RXD_232;
+                UARTparam.txd = TXD_232;
+                currentState = READ_DATA;
                 currentState = INIT_UART;
                 break;
             }
         }
         case DETERMINATE_BAUD_232_I:
         {
-            if (temporalData.getInt("baud", 0) == 0)
+            UARTparam.baud = optimalBaudrateDetection(true, RXD_232, TXD_232);
+            if (UARTparam.baud == 0)
             {
-                UARTparam.baud = optimalBaudrateDetection(true, RXD_232, TXD_232);
-                if (UARTparam.baud != 0)
-                {
-                    UARTparam.inverted = true;
-                    UARTparam.rxd = RXD_232;
-                    UARTparam.txd = TXD_232;
-                    currentState = READ_DATA;
-                    loadData(UARTparam.inverted, UARTparam.rxd, UARTparam.txd, UARTparam.baud);
-                    break;
-                }
-                else
-                {
 #ifdef DEBUG
-                    BLE_notify("Could not detect at RS232 inverted");
+                BLE_notify("Could not detect at RS232 inverted");
 #endif
-                    currentState = DETERMINATE_BAUD_485_NI;
-                    break;
-                }
+                currentState = DETERMINATE_BAUD_485_NI;
+                break;
             }
             else
             {
+                UARTparam.inverted = true;
+                UARTparam.rxd = RXD_232;
+                UARTparam.txd = TXD_232;
+                currentState = READ_DATA;
                 currentState = INIT_UART;
                 break;
             }
         }
         case DETERMINATE_BAUD_485_NI:
         {
-            if (temporalData.getInt("baud", 0) == 0)
+            UARTparam.baud = optimalBaudrateDetection(false, RXD_485, TXD_485);
+            if (UARTparam.baud == 0)
             {
-                digitalWrite(RE, LOW);
-                UARTparam.baud = optimalBaudrateDetection(false, RXD_485, TXD_485);
-                if (UARTparam.baud != 0)
-                {
-                    UARTparam.inverted = false;
-                    UARTparam.rxd = RXD_485;
-                    UARTparam.txd = TXD_485;
-                    currentState = READ_DATA;
-                    loadData(UARTparam.inverted, UARTparam.rxd, UARTparam.txd, UARTparam.baud);
-                    break;
-                }
-                else
-                {
 #ifdef DEBUG
-                    BLE_notify("Could not detect at RS485 not inverted");
+                BLE_notify("Could not detect at RS485 not inverted");
 #endif
-                    currentState = DETERMINATE_BAUD_485_I;
-                    break;
-                }
+                currentState = DETERMINATE_BAUD_485_I;
+                break;
             }
             else
             {
+                digitalWrite(RE, LOW);
+
+                UARTparam.inverted = false;
+                UARTparam.rxd = RXD_485;
+                UARTparam.txd = TXD_485;
+                currentState = READ_DATA;
                 currentState = INIT_UART;
                 break;
             }
         }
         case DETERMINATE_BAUD_485_I:
         {
-            if (temporalData.getInt("baud", 0) == 0)
+            UARTparam.baud = optimalBaudrateDetection(true, RXD_485, TXD_485);
+            if (UARTparam.baud == 0)
             {
-                digitalWrite(RE, LOW);
-                UARTparam.baud = optimalBaudrateDetection(true, RXD_485, TXD_485);
-                if (UARTparam.baud != 0)
-                {
-                    UARTparam.inverted = true;
-                    UARTparam.rxd = RXD_485;
-                    UARTparam.txd = TXD_485;
-                    currentState = READ_DATA;
-                    loadData(UARTparam.inverted, UARTparam.rxd, UARTparam.txd, UARTparam.baud);
-                    break;
-                }
-                else
-                {
 #ifdef DEBUG
-                    BLE_notify("Could not detect at RS485 inverted");
+                BLE_notify("Could not detect at RS485 inverted");
 #endif
-                    currentState = SEND_FAIL;
-                    break;
-                }
+                currentState = SEND_FAIL;
+                break;
             }
             else
             {
+                digitalWrite(RE, LOW);
+                UARTparam.inverted = true;
+                UARTparam.rxd = RXD_485;
+                UARTparam.txd = TXD_485;
+                currentState = READ_DATA;
                 currentState = INIT_UART;
                 break;
             }
         }
         case INIT_UART:
         {
-            loadData();
             Serial.end();
             Serial.begin(UARTparam.baud, SERIAL_8N1, UARTparam.rxd, UARTparam.txd, UARTparam.inverted);
             currentState = READ_DATA;
-
             break;
         }
         case READ_DATA:
@@ -181,7 +192,8 @@ void task2(void *parameters)
             // msg = Serial.readString();
             while (Serial.available() > 0)
             {
-                BLE_notify(String((char)Serial.read()).c_str());
+                // BLE_notify(String((char)Serial.read()).c_str());
+                Blue_send((char)Serial.read());
             }
             break;
         }
@@ -192,6 +204,14 @@ void task2(void *parameters)
             ESP.restart();
             break;
         }
+
+        case SEND_TEST:
+        {
+            String val = String(random(98989888)) + String("\r\n"); 
+            Blue_send(val);
+            // BLE_notify("Hola Chingo\r\n");
+        }
+
         default:
             break;
         }
@@ -202,7 +222,8 @@ void task2(void *parameters)
 
 void setup()
 {
-    BLE_setup();
+    // BLE_setup();
+    Blue_setup(deviceName, pinc);
     setupFileSystem();
     xTaskCreatePinnedToCore(
         task1,

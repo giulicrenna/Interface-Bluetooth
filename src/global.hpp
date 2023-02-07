@@ -1,12 +1,14 @@
 #define __ARDUINO__
 #define DEBUG
 #define RE GPIO_NUM_4 // receiver enable
-#define PIN_RED GPIO_NUM_27
+#define PIN_RED GPIO_NUM_2
 #define PIN_GREEN GPIO_NUM_26
 #define PIN_BLUE GPIO_NUM_25
 
 typedef enum
 {
+    BLUE_PAIRING,
+    BLUE_ASK_KEY,
     DETERMINATE_BAUD_232_NI,
     DETERMINATE_BAUD_232_I,
     DETERMINATE_BAUD_485_NI,
@@ -14,7 +16,8 @@ typedef enum
     INIT_UART,
     SEND_MSG,
     READ_DATA,
-    SEND_FAIL
+    SEND_FAIL,
+    SEND_TEST
 } States;
 
 int TXD_485 = GPIO_NUM_17;
@@ -23,18 +26,19 @@ int TXD_232 = GPIO_NUM_1; // PIN 35
 int RXD_232 = GPIO_NUM_3; // PIN 34
 
 const char *deviceID = std::to_string(ESP.getEfuseMac()).c_str();
-const char *deviceName = "Darkflow-Device";
+const char *deviceName = "Hola-Guacho-Pistola";
 bool couldDetect;
 
 String msg = "";
 
+const char *pinc = "Crenna123";
 int pin = 12345;
 uint64_t currentTimeBluetoothMessage = 0;
 uint64_t bluetoothMessageTime = 1000;
 
 struct lastParams
 {
-    int baud;
+    int baud = 0;
     bool inverted;
     int rxd;
     int txd;
