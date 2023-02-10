@@ -18,29 +18,42 @@
 #include "BLE_configs.hpp"
 #include "traditionalBlue.hpp"
 #include "autoBaudrate.hpp"
-#include "rgbLeds.hpp"
+// #include "rgbLeds.hpp"
 
+int previousMillis = 0;
+int ledState = LOW;
 States currentState = BLUE_PAIRING;
-myLeds leds{GPIO_NUM_27,
-            GPIO_NUM_26,
-            GPIO_NUM_25};
+
+void blink();
 
 void task1(void *param)
 {
     for (;;)
     {
-        try
+        switch (currentState)
         {
-            if (msg != "")
-            {
-                BLE_notify(msg.c_str());
-            }
+        case BLUE_ASK_KEY:
+        {
             blink();
+            break;
         }
-        catch (const std::exception &e)
+        case BLUE_PAIRING:
         {
+            blink();
+            break;
         }
-        vTaskDelay(500 / portTICK_PERIOD_MS);
+        case SEND_MSG:
+        {
+            digitalWrite(PIN_RED, HIGH);
+            break;
+        }
+        case SEND_TEST:
+        {
+            digitalWrite(PIN_RED, HIGH);
+            break;
+        }
+        }
+        vTaskDelay(10);
     }
 }
 
@@ -87,6 +100,7 @@ void task2(void *parameters)
             if (askForKey(pinc))
             {
                 SerialBT.println("Succesfully validated");
+                SerialBT.println("key: " + String(keyring));
                 currentState = SEND_TEST;
                 break;
             }
@@ -189,13 +203,37 @@ void task2(void *parameters)
         }
         case READ_DATA:
         {
-            // msg = Serial.readString();
-            while (Serial.available() > 0)
+
+            if (isAnyone())
             {
-                // BLE_notify(String((char)Serial.read()).c_str());
-                Blue_send((char)Serial.read());
+                // msg = Serial.readString();
+                while (Serial.available() > 0)
+                {
+                    // BLE_notify(String((char)Serial.read()).c_str());
+                    Blue_send((char)Serial.read());
+                }
+                break;
             }
-            break;
+            else
+            {
+                int lastTimeToPairAgain = 0;
+                while (lastTimeToPairAgain != 10000)
+                {
+                    if (isAnyone())
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        lastTimeToPairAgain++;
+                    }
+                }
+                if (lastTimeToPairAgain == 10000)
+                {
+                    currentState = BLUE_PAIRING;
+                    break;
+                }
+            }
         }
         case SEND_FAIL:
         {
@@ -207,8 +245,16 @@ void task2(void *parameters)
 
         case SEND_TEST:
         {
-            String val = String(random(98989888)) + String("\r\n"); 
-            Blue_send(val);
+            if (isAnyone())
+            {
+                String val = String(random(1001)) + String("\r\n");
+                Blue_send(val);
+            }
+            else
+            {
+                currentState = BLUE_PAIRING;
+                break;
+            }
             // BLE_notify("Hola Chingo\r\n");
         }
 
@@ -224,7 +270,6 @@ void setup()
 {
     // BLE_setup();
     Blue_setup(deviceName, pinc);
-    setupFileSystem();
     xTaskCreatePinnedToCore(
         task1,
         "Task 1...",
@@ -241,10 +286,22 @@ void setup()
         1,
         NULL,
         1);
-    pinMode(PIN_RED, OUTPUT);
+    pinMode(GPIO_NUM_12, OUTPUT);
     pinMode(RE, OUTPUT);
+    digitalWrite(GPIO_NUM_12, HIGH);
+    delay(3000);
 }
 
 void loop()
 {
+}
+
+void blink()
+{
+    if (millis() - previousMillis >= 1000)
+    {
+        ledState = (ledState == LOW) ? HIGH : LOW;
+        digitalWrite(PIN_RED, ledState);
+        previousMillis = millis();
+    }
 }

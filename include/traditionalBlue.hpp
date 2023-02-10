@@ -10,6 +10,7 @@
 
 BluetoothSerial SerialBT;
 
+uint32_t keyring = 0;
 int currentTimeForPairing = 0;
 String MACadd = "AA:BB:CC:11:22:33";
 uint8_t address[6] = {0xAA, 0xBB, 0xCC, 0x11, 0x22, 0x33};
@@ -18,6 +19,7 @@ boolean confirmRequestPending = true;
 void BTConfirmRequestCallback(uint32_t numVal)
 {
     confirmRequestPending = true;
+    keyring = numVal;
 }
 
 void BTAuthCompleteCallback(boolean success)

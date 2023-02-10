@@ -74,19 +74,5 @@ public:
     }
 };
 
-void blink()
-{
-    if (millis() - previousMillis >= 500)
-    {
-        // if the LED is off turn it on and vice-versa:
-        ledState = (ledState == LOW) ? HIGH : LOW;
-
-        // set the LED with the ledState of the variable:
-        digitalWrite(GPIO_NUM_27, ledState);
-
-        // save the last time you blinked the LED
-        previousMillis = millis();
-    }
-}
 
 #endif
