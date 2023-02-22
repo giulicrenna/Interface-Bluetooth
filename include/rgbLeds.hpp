@@ -7,6 +7,8 @@ GREEN
 PINK
 BLACK
 */
+int ledState = LOW;
+int previousMillis = 0;
 
 class myLeds
 {
@@ -71,5 +73,6 @@ public:
         analogWrite(PIN_BLUE, B);
     }
 };
+
 
 #endif

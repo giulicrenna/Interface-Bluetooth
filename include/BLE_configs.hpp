@@ -4,17 +4,15 @@
 #include <BLE2902.h>
 
 /* define the UUID that our custom service will use */
-#define SERVICE_UUID "0000FFE0-0000-1000-8000-00805F9B34FB"
-#define CHARACTERISTIC_UUID "0000FFE1-0000-1000-8000-00805F9B34FB"
-#define CHARACTERISTIC_UUID_RX "0000FFE2-0000-1000-8000-00805F9B34FB"
-#define CHARACTERISTIC_UUID_TX "0000FFE3-0000-1000-8000-00805F9B34FB"
+#define SERVICE_UUID "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+#define CHARACTERISTIC_UUID "6e400004-b5a3-f393-e0a9-e50e24dcca9e"
+#define CHARACTERISTIC_UUID_RX "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
+#define CHARACTERISTIC_UUID_TX "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
 
 BLEServer *pServer = NULL;
 BLECharacteristic *pTxCharacteristic;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
-<<<<<<< HEAD
-=======
 char value[50] = "Default";
 
 #define customService BLEUUID((uint16_t)0x1700)
@@ -41,11 +39,10 @@ class MyCharacteristicCallbacks : public BLECharacteristicCallbacks
         }
         else
         {
-            Serial.println("Empty Value Received!");
+            // Serial.println("Empty Value Received!");
         }
     }
 };
->>>>>>> parent of 926e4d3 (Old BT support)
 
 class MyServerCallbacks : public BLEServerCallbacks
 {
@@ -128,6 +125,7 @@ void BLE_setup()
     // Create the BLE Device
     BLEDevice::init(deviceName);
 
+    // BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT_NO_MITM);
     BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT);
 
     BLEDevice::setSecurityCallbacks(new MySecurity());
@@ -140,6 +138,10 @@ void BLE_setup()
     BLEService *pService = pServer->createService(SERVICE_UUID);
 
     // Create a BLE Characteristic
+    BLECharacteristic *pCharacteristic = pService->createCharacteristic(
+        CHARACTERISTIC_UUID,
+        BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE
+    );
     pTxCharacteristic = pService->createCharacteristic(
         CHARACTERISTIC_UUID_TX,
         BLECharacteristic::PROPERTY_NOTIFY);
@@ -156,14 +158,22 @@ void BLE_setup()
     pService->start();
 
     // Start advertising
-    pServer->getAdvertising()->start();
-    Serial.println("Waiting a client lpm...");
+    BLEAdvertising *pAdvertising = pServer->getAdvertising();
+    // Serial.println("Waiting a client lpm...");
 
-<<<<<<< HEAD
-=======
-    customCharacteristic.setValue((char*)&value);
+    customCharacteristic.setValue((char *)&value);
 
->>>>>>> parent of 926e4d3 (Old BT support)
+    // advertisement config
+    pAdvertising->addServiceUUID(SERVICE_UUID);
+    /*
+    pAdvertising->setScanResponse(true);
+    pAdvertising->setMinPreferred(0x06); // functions that help with iPhone connections issue
+    pAdvertising->setMinPreferred(0x12);
+    */
+    //BLEDevice::startAdvertising();
+
+    pAdvertising->start();
+
     // Security Stuff
     BLESecurity *pSecurity = new BLESecurity(); // pin
 
@@ -174,6 +184,8 @@ void BLE_setup()
     uint8_t auth_option = ESP_BLE_ONLY_ACCEPT_SPECIFIED_AUTH_DISABLE;
 
     esp_ble_gap_set_security_param(ESP_BLE_SM_SET_STATIC_PASSKEY, &passkey, sizeof(uint32_t));
+    esp_ble_gap_set_security_param(ESP_BLE_SM_ONLY_ACCEPT_SPECIFIED_SEC_AUTH, &auth_option, sizeof(uint8_t));
+    esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY, &rsp_key, sizeof(uint8_t));
 
     pSecurity->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_MITM_BOND);
 
@@ -181,31 +193,18 @@ void BLE_setup()
 
     pSecurity->setKeySize(16);
 
-    esp_ble_gap_set_security_param(ESP_BLE_SM_ONLY_ACCEPT_SPECIFIED_SEC_AUTH, &auth_option, sizeof(uint8_t));
-
     pSecurity->setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
 
-    esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY, &rsp_key, sizeof(uint8_t));
-
-    // advertisement config
-
-    BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
-    pAdvertising->addServiceUUID(SERVICE_UUID);
-    pAdvertising->setScanResponse(true);
-    pAdvertising->setMinPreferred(0x06); // functions that help with iPhone connections issue
-    pAdvertising->setMinPreferred(0x12);
-    BLEDevice::startAdvertising();
-
-    Serial.println("Characteristic defined! Now you can read it in your phone!");
+    // Serial.println("Characteristic defined! Now you can read it in your phone!");
 }
 
-void BLE_notify(String message = "")
+void BLE_notify(const char *message = "")
 {
     if (deviceConnected)
     {
-        pTxCharacteristic->setValue(message.c_str());
+        pTxCharacteristic->setValue(message);
         pTxCharacteristic->notify();
-        delay(10); // bluetooth stack will go into congestion, if too many packets are sent
+        delay(5); // bluetooth stack will go into congestion, if too many packets are sent
     }
     // disconnecting
     if (!deviceConnected && oldDeviceConnected)
