@@ -25,8 +25,8 @@ void BTConfirmRequestCallback(uint32_t numVal)
 void BTAuthCompleteCallback(boolean success)
 {
     confirmRequestPending = false;
-    Serial.print("\nDevice Connected... Closing serial\n");
 }
+
 
 void Blue_setup(const char *deviceName, const char *pin_)
 {
@@ -111,6 +111,9 @@ bool askForKey(const char *_pin_)
             delay(1000);
 
             return (key == _pin_ ? true : false);
+        }
+        if(!isAnyone()){
+            ESP.restart();
         }
         cnt += 1;
     }

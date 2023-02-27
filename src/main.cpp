@@ -24,7 +24,7 @@ int previousMillis = 0;
 int ledState = LOW;
 States currentState = BLUE_PAIRING;
 
-void blink();
+void blink(int timelapse = 500);
 
 void task1(void *param)
 {
@@ -34,22 +34,24 @@ void task1(void *param)
         {
         case BLUE_ASK_KEY:
         {
-            blink();
+            blink(50);
             break;
         }
         case BLUE_PAIRING:
         {
-            blink();
+            blink(1000);
             break;
         }
         case SEND_MSG:
         {
-            digitalWrite(PIN_RED, HIGH);
+            // Estaba en high pero se apaga
+            // En low se prende
+            digitalWrite(PIN_RED, LOW);
             break;
         }
         case SEND_TEST:
         {
-            digitalWrite(PIN_RED, HIGH);
+            digitalWrite(PIN_RED, LOW);
             break;
         }
         }
@@ -66,35 +68,17 @@ void task2(void *parameters)
         case BLUE_PAIRING:
         {
             bool couldConn = false;
-            int cnt = 0;
-            Serial.begin(115200);
-            while (cnt < 15000)
+            while (true)
             {
                 couldConn = confirmAuth();
-                if (couldConn)
+                if (isAnyone() || couldConn)
                 {
+                    currentState = BLUE_ASK_KEY;
                     break;
                 }
-                if (isAnyone())
-                {
-                    Serial.print("\nClient connected...\n");
-                    couldConn = true;
-                    break;
-                }
-                delay(2);
-                cnt += 2;
-                Serial.print("*");
             }
-            if (!couldConn)
-            {
-                Serial.print("\n[err 3] Could not pair device, restarting board...\n");
-                Serial.end();
-                ESP.restart();
-            }
-            Serial.end();
-            currentState = BLUE_ASK_KEY;
-            break;
         }
+
         case BLUE_ASK_KEY:
         {
             if (askForKey(pinc))
@@ -216,6 +200,8 @@ void task2(void *parameters)
             }
             else
             {
+                ESP.restart();
+                /*
                 int lastTimeToPairAgain = 0;
                 while (lastTimeToPairAgain != 10000)
                 {
@@ -233,6 +219,7 @@ void task2(void *parameters)
                     currentState = BLUE_PAIRING;
                     break;
                 }
+                */
             }
         }
         case SEND_FAIL:
@@ -245,15 +232,20 @@ void task2(void *parameters)
 
         case SEND_TEST:
         {
-            if (isAnyone())
+            if (millis() - currentTimeBluetoothTestMessage >= 1000)
             {
-                String val = String(random(1001)) + String("\r\n");
-                Blue_send(val);
-            }
-            else
-            {
-                currentState = BLUE_PAIRING;
-                break;
+                if (isAnyone())
+                {
+                    String val = String(random(1000, 9999)) + String("\r\n");
+                    Blue_send(val);
+                }
+                else
+                {
+                    ESP.restart();
+                    currentState = BLUE_PAIRING;
+                    break;
+                }
+                currentTimeBluetoothTestMessage = millis();
             }
             // BLE_notify("Hola Chingo\r\n");
         }
@@ -289,16 +281,15 @@ void setup()
     pinMode(GPIO_NUM_12, OUTPUT);
     pinMode(RE, OUTPUT);
     digitalWrite(GPIO_NUM_12, HIGH);
-    delay(3000);
 }
 
 void loop()
 {
 }
 
-void blink()
+void blink(int timelapse)
 {
-    if (millis() - previousMillis >= 1000)
+    if (millis() - previousMillis >= timelapse)
     {
         ledState = (ledState == LOW) ? HIGH : LOW;
         digitalWrite(PIN_RED, ledState);
