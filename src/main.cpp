@@ -84,11 +84,11 @@ void task2(void *parameters)
             if (askForKey(pinc))
             {
                 SerialBT.println("Succesfully validated");
-                SerialBT.println("key: " + String(keyring));
+                //SerialBT.println("key: " + String(keyring));
                 currentState = SEND_TEST;
                 break;
             }
-            SerialBT.println("[err 4] incorrect key");
+            SerialBT.println("Incorrect key");
             break;
         }
         case DETERMINATE_BAUD_232_NI:

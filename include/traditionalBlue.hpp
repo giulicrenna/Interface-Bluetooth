@@ -45,7 +45,7 @@ void Blue_setup(const char *deviceName, const char *pin_)
     pin_code[3] = '4';
     esp_bt_gap_set_pin(pin_type, 4, pin_code);
 
-    SerialBT.enableSSP();
+    //SerialBT.enableSSP();
     SerialBT.onConfirmRequest(BTConfirmRequestCallback);
     SerialBT.onAuthComplete(BTAuthCompleteCallback);
     SerialBT.begin(deviceName);
