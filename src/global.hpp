@@ -36,10 +36,12 @@ int TXD_232 = GPIO_NUM_1; // PIN 35
 int RXD_232 = GPIO_NUM_3; // PIN 34
 
 const char *deviceID = std::to_string(ESP.getEfuseMac()).c_str();
-const char *deviceName = "Darkflow-Balanza-2";
+const char *deviceName = "Darkflow-Balanza-1";
 bool couldDetect;
 
 const char *pinc = "12345";
 int pin = 12345;
 uint64_t currentTimeBluetoothMessage = 0;
+uint64_t currentTimeSendMessage = 0;
+uint64_t currentTimeBluetoothTestMessage = 0;
 uint64_t bluetoothMessageTime = 1000;
