@@ -42,5 +42,6 @@ bool couldDetect;
 const char *pinc = "12345";
 int pin = 12345;
 uint64_t currentTimeBluetoothMessage = 0;
+uint64_t currentTimeSendMessage = 0;
 uint64_t currentTimeBluetoothTestMessage = 0;
 uint64_t bluetoothMessageTime = 1000;

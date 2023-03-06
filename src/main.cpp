@@ -25,6 +25,7 @@ int ledState = LOW;
 States currentState = BLUE_PAIRING;
 
 void blink(int timelapse = 500);
+int calculate_time();
 
 void task1(void *param)
 {
@@ -53,6 +54,10 @@ void task1(void *param)
         {
             digitalWrite(PIN_RED, LOW);
             break;
+        }
+        default:
+        {
+            void blink(int timelapse = 100);
         }
         }
         vTaskDelay(10);
@@ -84,8 +89,8 @@ void task2(void *parameters)
             if (askForKey(pinc))
             {
                 SerialBT.println("Succesfully validated");
-                //SerialBT.println("key: " + String(keyring));
-                currentState = SEND_TEST;
+                // SerialBT.println("key: " + String(keyring));
+                currentState = DETERMINATE_BAUD_232_NI; // CHANGE THIS TO SEND_TEST IF WANT TO TEST RANDOM NUMERS
                 break;
             }
             SerialBT.println("Incorrect key");
@@ -191,11 +196,26 @@ void task2(void *parameters)
             if (isAnyone())
             {
                 // msg = Serial.readString();
+                /*
+                if (millis() - currentTimeSendMessage >= 1000)
+                {
+                    char msg[64];
+                    if (Serial.available() > 0)
+                    {
+                        Serial.readBytes(msg, 64);
+                    }
+                    String temp(msg);
+                    temp[-2] = '\0';
+                    temp[-1] = '\n';
+                    Blue_send(temp);
+                    currentTimeSendMessage = millis();
+                }
+                */
                 while (Serial.available() > 0)
                 {
-                    // BLE_notify(String((char)Serial.read()).c_str());
                     Blue_send((char)Serial.read());
                 }
+                delay(1000);
                 break;
             }
             else
@@ -221,6 +241,7 @@ void task2(void *parameters)
                 }
                 */
             }
+            break;
         }
         case SEND_FAIL:
         {
@@ -285,6 +306,12 @@ void setup()
 
 void loop()
 {
+}
+
+int calculate_time(){
+    if(Serial.available()){
+
+    }
 }
 
 void blink(int timelapse)
