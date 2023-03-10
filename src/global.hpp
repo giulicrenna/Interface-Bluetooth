@@ -4,6 +4,7 @@
 #define PIN_RED GPIO_NUM_12
 #define PIN_GREEN GPIO_NUM_26
 #define PIN_BLUE GPIO_NUM_25
+#define INCOME_BUFFER 68;
 
 typedef enum
 {

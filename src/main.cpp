@@ -64,6 +64,11 @@ void task1(void *param)
     }
 }
 
+/**
+ * @brief 
+ * 
+ * @param parameters 
+ */
 void task2(void *parameters)
 {
     for (;;)
@@ -196,26 +201,27 @@ void task2(void *parameters)
             if (isAnyone())
             {
                 // msg = Serial.readString();
-                /*
                 if (millis() - currentTimeSendMessage >= 1000)
                 {
-                    char msg[64];
+                    char msg[INCOME_BUFFER];
                     if (Serial.available() > 0)
                     {
-                        Serial.readBytes(msg, 64);
+                        Serial.readBytes(msg, INCOME_BUFFER);
                     }
-                    String temp(msg);
-                    temp[-2] = '\0';
-                    temp[-1] = '\n';
+                    
+                    String temp(std::string(msg).substr(0, INCOME_BUFFER-4).c_str());
                     Blue_send(temp);
                     currentTimeSendMessage = millis();
                 }
-                */
-                while (Serial.available() > 0)
+                /*
+                int cnt =  0; 
+                while (Serial.available() > 0 && cnt < 24)
                 {
                     Blue_send((char)Serial.read());
+                    cnt++;
                 }
                 delay(1000);
+                */
                 break;
             }
             else
@@ -308,12 +314,22 @@ void loop()
 {
 }
 
+/**
+ * @brief 
+ * 
+ * @return int 
+ */
 int calculate_time(){
     if(Serial.available()){
 
     }
 }
 
+/**
+ * @brief 
+ * 
+ * @param timelapse 
+ */
 void blink(int timelapse)
 {
     if (millis() - previousMillis >= timelapse)
