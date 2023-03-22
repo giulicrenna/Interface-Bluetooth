@@ -34,10 +34,13 @@ int TXD_485 = GPIO_NUM_17;
 int RXD_485 = GPIO_NUM_16;
 int TXD_232 = GPIO_NUM_1; // PIN 35
 int RXD_232 = GPIO_NUM_3; // PIN 34
+int sendTime = 1000;
+int INCOME_BUFFER = 32;
 
 const char *deviceID = std::to_string(ESP.getEfuseMac()).c_str();
 const char *deviceName = "Darkflow-Balanza-1";
 bool couldDetect;
+bool sendToDevice = true;
 
 const char *pinc = "12345";
 int pin = 12345;
