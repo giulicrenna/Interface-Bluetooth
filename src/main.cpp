@@ -18,7 +18,10 @@
 #include "BLE_configs.hpp"
 #include "traditionalBlue.hpp"
 #include "autoBaudrate.hpp"
+#include "mStandars.h"
 // #include "rgbLeds.hpp"
+
+Preferences config;
 
 int previousMillis = 0;
 int ledState = LOW;
@@ -55,9 +58,80 @@ void task1(void *param)
             digitalWrite(PIN_RED, LOW);
             break;
         }
-        default:
-        {
-            void blink(int timelapse = 100);
+        case READ_DATA: {
+            /**
+             * @brief In this section the ESP32 intercept BT commands
+             * 
+             */
+            if(SerialBT.available() > 0){
+                String command = SerialBT.readString();
+                command.trim();
+                if (command == "PAUSE"){
+                    sendToDevice = false;
+                    config.putBool("send", false);
+                    SerialBT.println("[est 1] Configuración actualizada correctamente.");
+                    break;
+                }
+                else if (command == "CONTINUE"){
+                    sendToDevice = true;
+                    config.putBool("send", true);
+                    SerialBT.println("[est 2] Configuración actualizada correctamente.");
+                }else{
+                    String cmd[5];
+                    std::vector<std::string> cmd_v = mstd::strip(command.c_str(), ':');
+                    for(int k=0; k < cmd_v.size(); k++){cmd[k] = String(cmd_v.at(k).c_str());}
+                    if(cmd[0] == "TIME"){
+                        try
+                        {
+                            int temp_time = std::stoi(cmd[1].c_str());
+                            sendTime = temp_time;
+                            config.putInt("time", sendTime);
+                            SerialBT.println("[est 3] Configuración actualizada correctamente.");
+                        }
+                        catch(const std::exception& e)
+                        {
+                            SerialBT.println("[err 3] Parametros incorrectos.");
+                            break;
+                        }
+                    }else if(cmd[0] == "BUFFER"){
+                        try
+                        {
+                            int temp_buffer = std::stoi(cmd[1].c_str());
+                            INCOME_BUFFER = temp_buffer;
+                            config.putInt("buffer", INCOME_BUFFER);
+                            SerialBT.println("[est 4] Configuración actualizada correctamente.");
+                        }
+                        catch(const std::exception& e)
+                        {
+                            SerialBT.println("[err 3] Parametros incorrectos.");
+                            break;
+                        }
+                    }else if(cmd[0] == "PASSW"){
+                        try
+                        {
+                            if(cmd[1] == pinc){
+                                pinc = cmd[2].c_str();
+                                config.putString("pinc", cmd[2]);
+                                SerialBT.println("[est 5] Configuración actualizada correctamente.");
+                                break;
+                            }else{
+                                SerialBT.println("[err 5] Contraseña incorrecta.");
+                                break;
+                            }
+                        }
+                        catch(const std::exception& e)
+                        {
+                            SerialBT.println("[err 5] Contraseña incorrecta.");
+                        }
+                    }else{
+                        SerialBT.println("[err 2] Comando invalido.");
+                    }
+                    break;
+                }
+            }
+
+            digitalWrite(PIN_RED, LOW);
+            break;
         }
         }
         vTaskDelay(10);
@@ -93,12 +167,12 @@ void task2(void *parameters)
         {
             if (askForKey(pinc))
             {
-                SerialBT.println("Succesfully validated");
+                SerialBT.println("[msg 0] Contraseña correcta");
                 // SerialBT.println("key: " + String(keyring));
                 currentState = DETERMINATE_BAUD_232_NI; // CHANGE THIS TO SEND_TEST IF WANT TO TEST RANDOM NUMERS
                 break;
             }
-            SerialBT.println("Incorrect key");
+            SerialBT.println("[err 0] Contraseña incorrecta");
             break;
         }
         case DETERMINATE_BAUD_232_NI:
@@ -201,7 +275,7 @@ void task2(void *parameters)
             if (isAnyone())
             {
                 // msg = Serial.readString();
-                if (millis() - currentTimeSendMessage >= 1000)
+                if (millis() - currentTimeSendMessage >= sendTime && sendToDevice)
                 {
                     char msg[INCOME_BUFFER];
                     if (Serial.available() > 0)
@@ -251,7 +325,7 @@ void task2(void *parameters)
         }
         case SEND_FAIL:
         {
-            msg = "[err 0] Couldn't detect any baudrate\n";
+            msg = "[err 1] No se pudo obtener la configuracion\n";
             delay(1000);
             ESP.restart();
             break;
@@ -259,7 +333,7 @@ void task2(void *parameters)
 
         case SEND_TEST:
         {
-            if (millis() - currentTimeBluetoothTestMessage >= 1000)
+            if (millis() - currentTimeBluetoothTestMessage >= sendTime && sendToDevice)
             {
                 if (isAnyone())
                 {
@@ -305,6 +379,11 @@ void setup()
         1,
         NULL,
         1);
+    config.begin("config", false);
+    INCOME_BUFFER = config.getInt("buffer", 32); 
+    sendTime = config.getInt("time", 1000);
+    sendToDevice = config.getBool("send", true);
+    pinc = config.getString("pinc", "12345").c_str();
     pinMode(GPIO_NUM_12, OUTPUT);
     pinMode(RE, OUTPUT);
     digitalWrite(GPIO_NUM_12, HIGH);
@@ -321,8 +400,9 @@ void loop()
  */
 int calculate_time(){
     if(Serial.available()){
-
+        return 0;
     }
+    return 0;
 }
 
 /**
