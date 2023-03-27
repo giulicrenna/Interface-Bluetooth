@@ -29,6 +29,7 @@ struct lastParams
 } UARTparam;
 
 String msg = "";
+String pinc;
 
 int TXD_485 = GPIO_NUM_17;
 int RXD_485 = GPIO_NUM_16;
@@ -42,7 +43,6 @@ const char *deviceName = "Darkflow-Balanza-1";
 bool couldDetect;
 bool sendToDevice = true;
 
-const char *pinc = "12345";
 int pin = 12345;
 uint64_t currentTimeBluetoothMessage = 0;
 uint64_t currentTimeSendMessage = 0;

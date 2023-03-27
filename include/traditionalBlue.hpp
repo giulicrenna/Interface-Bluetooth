@@ -100,6 +100,7 @@ bool askForKey(const char *_pin_)
         {
             SerialBT.println("**Send user key**");
             currentTimeForPairing = millis();
+            SerialBT.println(_pin_);
         }
 
         if (SerialBT.available() > 0)

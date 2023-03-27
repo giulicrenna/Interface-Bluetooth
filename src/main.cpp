@@ -55,8 +55,8 @@ void task1(void *param)
         }
         case SEND_TEST:
         {
-            digitalWrite(PIN_RED, LOW);
-            break;
+            //digitalWrite(PIN_RED, LOW);
+            //break;
         }
         case READ_DATA: {
             /**
@@ -165,7 +165,7 @@ void task2(void *parameters)
 
         case BLUE_ASK_KEY:
         {
-            if (askForKey(pinc))
+            if (askForKey(pinc.c_str()))
             {
                 SerialBT.println("[msg 0] Contraseña correcta");
                 // SerialBT.println("key: " + String(keyring));
@@ -362,7 +362,7 @@ void task2(void *parameters)
 void setup()
 {
     // BLE_setup();
-    Blue_setup(deviceName, pinc);
+    Blue_setup(deviceName, pinc.c_str());
     xTaskCreatePinnedToCore(
         task1,
         "Task 1...",
@@ -383,7 +383,7 @@ void setup()
     INCOME_BUFFER = config.getInt("buffer", 32); 
     sendTime = config.getInt("time", 1000);
     sendToDevice = config.getBool("send", true);
-    pinc = config.getString("pinc", "12345").c_str();
+    pinc = config.getString("pinc", "12345");
     pinMode(GPIO_NUM_12, OUTPUT);
     pinMode(RE, OUTPUT);
     digitalWrite(GPIO_NUM_12, HIGH);
