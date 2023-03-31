@@ -3,9 +3,10 @@
 // #include <esp32-hal-cpu.h>
 // #include <hal/uart_ll.h>
 
+
 int checkBetweenBauds(int b)
 {
-    int bauds[14] = {9600, 110, 300, 600, 1200, 115200, 57600, 2400, 4800, 14400, 19200, 38400, 128000, 256000};
+    int bauds[21] = {110, 300, 600, 1200, 4800, 9600, 115200, 57600, 2400, 4800, 14400, 19200, 28800, 38400, 76800, 128000, 230400, 256000, 460800, 576000, 921600};
     for (int baud : bauds)
     {
         if (std::abs(baud - b) < 150)
@@ -32,6 +33,15 @@ extern "C"
 }
 #endif
 
+/**
+ * @brief This function detect the baudrate and returns 0 if could not detect anything.
+ * 
+ * @param inverted 
+ * @param rxd 
+ * @param txd 
+ * @param timeout_ 
+ * @return int 
+ */
 int optimalBaudrateDetection(bool inverted, int rxd, int txd, int timeout_ = 1000)
 {
     Serial.begin(0, SERIAL_8N1, rxd, txd, inverted, timeout_); // Passing 0 for baudrate to detect it, the last parameter is a timeout in ms

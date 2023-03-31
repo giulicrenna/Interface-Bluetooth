@@ -13,12 +13,12 @@
 #include <HardwareSerial.h>
 #include <Preferences.h>
 
+#include "mStandars.h"
 #include "global.hpp"
 #include "functions.hpp"
 #include "BLE_configs.hpp"
 #include "traditionalBlue.hpp"
 #include "autoBaudrate.hpp"
-#include "mStandars.h"
 // #include "rgbLeds.hpp"
 
 Preferences config;
@@ -27,8 +27,14 @@ int previousMillis = 0;
 int ledState = LOW;
 States currentState = BLUE_PAIRING;
 
+void initUART();
+void setupPreferences();
 void blink(int timelapse = 500);
-int calculate_time();
+void askKey();
+void sendTest();
+void sendFail();
+void sendData();
+void lexator();
 
 void task1(void *param)
 {
@@ -55,81 +61,16 @@ void task1(void *param)
         }
         case SEND_TEST:
         {
-            //digitalWrite(PIN_RED, LOW);
-            //break;
+            digitalWrite(PIN_RED, LOW);
+            break;
         }
-        case READ_DATA: {
+        case READ_DATA:
+        {
             /**
              * @brief In this section the ESP32 intercept BT commands
-             * 
+             *
              */
-            if(SerialBT.available() > 0){
-                String command = SerialBT.readString();
-                command.trim();
-                if (command == "PAUSE"){
-                    sendToDevice = false;
-                    config.putBool("send", false);
-                    SerialBT.println("[est 1] Configuración actualizada correctamente.");
-                    break;
-                }
-                else if (command == "CONTINUE"){
-                    sendToDevice = true;
-                    config.putBool("send", true);
-                    SerialBT.println("[est 2] Configuración actualizada correctamente.");
-                }else{
-                    String cmd[5];
-                    std::vector<std::string> cmd_v = mstd::strip(command.c_str(), ':');
-                    for(int k=0; k < cmd_v.size(); k++){cmd[k] = String(cmd_v.at(k).c_str());}
-                    if(cmd[0] == "TIME"){
-                        try
-                        {
-                            int temp_time = std::stoi(cmd[1].c_str());
-                            sendTime = temp_time;
-                            config.putInt("time", sendTime);
-                            SerialBT.println("[est 3] Configuración actualizada correctamente.");
-                        }
-                        catch(const std::exception& e)
-                        {
-                            SerialBT.println("[err 3] Parametros incorrectos.");
-                            break;
-                        }
-                    }else if(cmd[0] == "BUFFER"){
-                        try
-                        {
-                            int temp_buffer = std::stoi(cmd[1].c_str());
-                            INCOME_BUFFER = temp_buffer;
-                            config.putInt("buffer", INCOME_BUFFER);
-                            SerialBT.println("[est 4] Configuración actualizada correctamente.");
-                        }
-                        catch(const std::exception& e)
-                        {
-                            SerialBT.println("[err 3] Parametros incorrectos.");
-                            break;
-                        }
-                    }else if(cmd[0] == "PASSW"){
-                        try
-                        {
-                            if(cmd[1] == pinc){
-                                pinc = cmd[2].c_str();
-                                config.putString("pinc", cmd[2]);
-                                SerialBT.println("[est 5] Configuración actualizada correctamente.");
-                                break;
-                            }else{
-                                SerialBT.println("[err 5] Contraseña incorrecta.");
-                                break;
-                            }
-                        }
-                        catch(const std::exception& e)
-                        {
-                            SerialBT.println("[err 5] Contraseña incorrecta.");
-                        }
-                    }else{
-                        SerialBT.println("[err 2] Comando invalido.");
-                    }
-                    break;
-                }
-            }
-
+            lexator();
             digitalWrite(PIN_RED, LOW);
             break;
         }
@@ -139,9 +80,9 @@ void task1(void *param)
 }
 
 /**
- * @brief 
- * 
- * @param parameters 
+ * @brief
+ *
+ * @param parameters
  */
 void task2(void *parameters)
 {
@@ -165,88 +106,61 @@ void task2(void *parameters)
 
         case BLUE_ASK_KEY:
         {
-            if (askForKey(pinc.c_str()))
-            {
-                SerialBT.println("[msg 0] Contraseña correcta");
-                // SerialBT.println("key: " + String(keyring));
-                currentState = DETERMINATE_BAUD_232_NI; // CHANGE THIS TO SEND_TEST IF WANT TO TEST RANDOM NUMERS
-                break;
-            }
-            SerialBT.println("[err 0] Contraseña incorrecta");
+            askKey();
             break;
         }
+
+        case MANAGE_UART:
+        {
+            if (UARTparam.isAuto)
+            {
+                currentState = DETERMINATE_BAUD_232_NI;
+                break;
+            }
+
+            if (UARTparam.isRS232)
+            {
+                UARTparam.rxd = RXD_232;
+                UARTparam.txd = TXD_232;
+            }
+            else
+            {
+                UARTparam.rxd = RXD_485;
+                UARTparam.txd = TXD_485;
+            }
+            currentState = INIT_UART;
+            break;
+        }
+
         case DETERMINATE_BAUD_232_NI:
         {
             UARTparam.baud = optimalBaudrateDetection(false, RXD_232, TXD_232);
             if (UARTparam.baud == 0)
             {
 #ifdef DEBUG
-                BLE_notify("Could not detect at RS232 not inverted");
-#endif
-                currentState = DETERMINATE_BAUD_232_I;
-                break;
-            }
-            else
-            {
-                UARTparam.inverted = false;
-                UARTparam.rxd = RXD_232;
-                UARTparam.txd = TXD_232;
-                currentState = READ_DATA;
-                currentState = INIT_UART;
-                break;
-            }
-        }
-        case DETERMINATE_BAUD_232_I:
-        {
-            UARTparam.baud = optimalBaudrateDetection(true, RXD_232, TXD_232);
-            if (UARTparam.baud == 0)
-            {
-#ifdef DEBUG
-                BLE_notify("Could not detect at RS232 inverted");
+                Blue_send(debugging.err_0);
 #endif
                 currentState = DETERMINATE_BAUD_485_NI;
                 break;
             }
             else
             {
-                UARTparam.inverted = true;
+                SerialBT.println(String(debugging.sta_5) + String(UARTparam.baud));
+                UARTparam.inverted = false;
                 UARTparam.rxd = RXD_232;
                 UARTparam.txd = TXD_232;
-                currentState = READ_DATA;
                 currentState = INIT_UART;
                 break;
             }
         }
+
         case DETERMINATE_BAUD_485_NI:
         {
             UARTparam.baud = optimalBaudrateDetection(false, RXD_485, TXD_485);
             if (UARTparam.baud == 0)
             {
 #ifdef DEBUG
-                BLE_notify("Could not detect at RS485 not inverted");
-#endif
-                currentState = DETERMINATE_BAUD_485_I;
-                break;
-            }
-            else
-            {
-                digitalWrite(RE, LOW);
-
-                UARTparam.inverted = false;
-                UARTparam.rxd = RXD_485;
-                UARTparam.txd = TXD_485;
-                currentState = READ_DATA;
-                currentState = INIT_UART;
-                break;
-            }
-        }
-        case DETERMINATE_BAUD_485_I:
-        {
-            UARTparam.baud = optimalBaudrateDetection(true, RXD_485, TXD_485);
-            if (UARTparam.baud == 0)
-            {
-#ifdef DEBUG
-                BLE_notify("Could not detect at RS485 inverted");
+                Blue_send(debugging.err_1);
 #endif
                 currentState = SEND_FAIL;
                 break;
@@ -254,101 +168,46 @@ void task2(void *parameters)
             else
             {
                 digitalWrite(RE, LOW);
-                UARTparam.inverted = true;
+                SerialBT.println(String(debugging.sta_5) + String(UARTparam.baud));
+                UARTparam.inverted = false;
                 UARTparam.rxd = RXD_485;
                 UARTparam.txd = TXD_485;
-                currentState = READ_DATA;
                 currentState = INIT_UART;
                 break;
             }
         }
+
         case INIT_UART:
         {
-            Serial.end();
-            Serial.begin(UARTparam.baud, SERIAL_8N1, UARTparam.rxd, UARTparam.txd, UARTparam.inverted);
+            initUART();
             currentState = READ_DATA;
             break;
         }
+
         case READ_DATA:
         {
 
             if (isAnyone())
             {
-                // msg = Serial.readString();
-                if (millis() - currentTimeSendMessage >= sendTime && sendToDevice)
-                {
-                    char msg[INCOME_BUFFER];
-                    if (Serial.available() > 0)
-                    {
-                        Serial.readBytes(msg, INCOME_BUFFER);
-                    }
-                    
-                    String temp(std::string(msg).substr(0, INCOME_BUFFER-4).c_str());
-                    Blue_send(temp);
-                    currentTimeSendMessage = millis();
-                }
-                /*
-                int cnt =  0; 
-                while (Serial.available() > 0 && cnt < 24)
-                {
-                    Blue_send((char)Serial.read());
-                    cnt++;
-                }
-                delay(1000);
-                */
+                sendData();
                 break;
             }
             else
             {
                 ESP.restart();
-                /*
-                int lastTimeToPairAgain = 0;
-                while (lastTimeToPairAgain != 10000)
-                {
-                    if (isAnyone())
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        lastTimeToPairAgain++;
-                    }
-                }
-                if (lastTimeToPairAgain == 10000)
-                {
-                    currentState = BLUE_PAIRING;
-                    break;
-                }
-                */
             }
             break;
         }
+
         case SEND_FAIL:
         {
-            msg = "[err 1] No se pudo obtener la configuracion\n";
-            delay(1000);
-            ESP.restart();
+            sendFail();
             break;
         }
 
         case SEND_TEST:
         {
-            if (millis() - currentTimeBluetoothTestMessage >= sendTime && sendToDevice)
-            {
-                if (isAnyone())
-                {
-                    String val = String(random(1000, 9999)) + String("\r\n");
-                    Blue_send(val);
-                }
-                else
-                {
-                    ESP.restart();
-                    currentState = BLUE_PAIRING;
-                    break;
-                }
-                currentTimeBluetoothTestMessage = millis();
-            }
-            // BLE_notify("Hola Chingo\r\n");
+            sendTest();
         }
 
         default:
@@ -379,11 +238,7 @@ void setup()
         1,
         NULL,
         1);
-    config.begin("config", false);
-    INCOME_BUFFER = config.getInt("buffer", 32); 
-    sendTime = config.getInt("time", 1000);
-    sendToDevice = config.getBool("send", true);
-    pinc = config.getString("pinc", "12345");
+    setupPreferences();
     pinMode(GPIO_NUM_12, OUTPUT);
     pinMode(RE, OUTPUT);
     digitalWrite(GPIO_NUM_12, HIGH);
@@ -393,22 +248,166 @@ void loop()
 {
 }
 
-/**
- * @brief 
- * 
- * @return int 
- */
-int calculate_time(){
-    if(Serial.available()){
-        return 0;
+void initUART()
+{
+    Serial.end();
+    Serial.begin(UARTparam.baud, SERIAL_8N1, UARTparam.rxd, UARTparam.txd, UARTparam.inverted);
+}
+
+void sendData()
+{
+    if (millis() - currentTimeSendMessage >= sendTime && sendToDevice)
+    {
+        char msg[INCOME_BUFFER];
+        if (Serial.available() > 0)
+        {
+            Serial.readBytes(msg, INCOME_BUFFER);
+        }
+
+        String temp(std::string(msg).substr(0, INCOME_BUFFER - 4).c_str());
+        Blue_send(temp);
+        currentTimeSendMessage = millis();
     }
-    return 0;
+}
+
+void askKey()
+{
+    if (askForKey(pinc.c_str()))
+    {
+        SerialBT.println(debugging.sta_0);
+        // SerialBT.println("key: " + String(keyring));
+        currentState = MANAGE_UART; // CHANGE THIS TO SEND_TEST IF WANT TO TEST RANDOM NUMERS
+        return;
+    }
+    SerialBT.println(debugging.err_2);
+}
+
+void setupPreferences()
+{
+    config.begin("config", false);
+    INCOME_BUFFER = config.getInt("buffer", 32);
+    sendTime = config.getInt("time", 1000);
+    sendToDevice = config.getBool("send", true);
+    pinc = config.getString("pinc", "12345");
+}
+
+void sendFail()
+{
+    Blue_send(debugging.err_3);
+    delay(1000);
+    ESP.restart();
+}
+
+void sendTest()
+{
+    if (millis() - currentTimeBluetoothTestMessage >= sendTime && sendToDevice)
+    {
+        if (isAnyone())
+        {
+            String val = String(random(1000, 9999)) + String("\r\n");
+            Blue_send(val);
+        }
+        else
+        {
+            ESP.restart();
+            currentState = BLUE_PAIRING;
+        }
+        currentTimeBluetoothTestMessage = millis();
+    }
+}
+
+void lexator()
+{
+    if (SerialBT.available() > 0)
+    {
+        String command = SerialBT.readString();
+        command.trim();
+        if (command == "PAUSE")
+        {
+            sendToDevice = false;
+            config.putBool("send", false);
+            SerialBT.println(debugging.sta_1);
+            // break;
+        }
+        else if (command == "CONTINUE")
+        {
+            sendToDevice = true;
+            config.putBool("send", true);
+            SerialBT.println(debugging.sta_2);
+        }
+        else
+        {
+            String cmd[5];
+            std::vector<std::string> cmd_v = mstd::strip(command.c_str(), ':');
+            for (int k = 0; k < cmd_v.size(); k++)
+            {
+                cmd[k] = String(cmd_v.at(k).c_str());
+            }
+            if (cmd[0] == "TIME")
+            {
+                try
+                {
+                    int temp_time = std::stoi(cmd[1].c_str());
+                    sendTime = temp_time;
+                    config.putInt("time", sendTime);
+                    SerialBT.println(debugging.sta_3);
+                }
+                catch (const std::exception &e)
+                {
+                    SerialBT.println(debugging.err_4);
+                    // break;
+                }
+            }
+            else if (cmd[0] == "BUFFER")
+            {
+                try
+                {
+                    int temp_buffer = std::stoi(cmd[1].c_str());
+                    INCOME_BUFFER = temp_buffer;
+                    config.putInt("buffer", INCOME_BUFFER);
+                    SerialBT.println(debugging.sta_4);
+                }
+                catch (const std::exception &e)
+                {
+                    SerialBT.println(debugging.err_4);
+                    // break;
+                }
+            }
+            else if (cmd[0] == "PASSW")
+            {
+                try
+                {
+                    if (cmd[1] == pinc)
+                    {
+                        pinc = cmd[2].c_str();
+                        config.putString("pinc", cmd[2]);
+                        SerialBT.println(debugging.sta_6);
+                        // break;
+                    }
+                    else
+                    {
+                        SerialBT.println(debugging.err_5);
+                        // break;
+                    }
+                }
+                catch (const std::exception &e)
+                {
+                    SerialBT.println(debugging.err_6);
+                }
+            }
+            else
+            {
+                SerialBT.println(debugging.err_7);
+            }
+            // break;
+        }
+    }
 }
 
 /**
- * @brief 
- * 
- * @param timelapse 
+ * @brief
+ *
+ * @param timelapse
  */
 void blink(int timelapse)
 {
