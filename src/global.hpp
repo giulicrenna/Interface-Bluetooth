@@ -38,7 +38,7 @@ uint64_t currentTimeBluetoothTestMessage = 0;
 uint64_t bluetoothMessageTime = 1000;
 
 const char *deviceID = std::to_string(ESP.getEfuseMac()).c_str();
-const char *deviceName = "Darkflow-Balanza-2";
+const char *deviceName = "Darkflow-Balanza-";
 
 bool couldDetect;
 bool sendToDevice = true;
