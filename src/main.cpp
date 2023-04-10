@@ -21,7 +21,7 @@
 #include "autoBaudrate.hpp"
 // #include "rgbLeds.hpp"
 
-Preferences config;
+
 
 int previousMillis = 0;
 int ledState = LOW;
@@ -221,7 +221,8 @@ void task2(void *parameters)
 void setup()
 {
     // BLE_setup();
-    Blue_setup(deviceName, pinc.c_str());
+    setupPreferences();
+    Blue_setup(deviceName);
     xTaskCreatePinnedToCore(
         task1,
         "Task 1...",
@@ -238,7 +239,6 @@ void setup()
         1,
         NULL,
         1);
-    setupPreferences();
     pinMode(GPIO_NUM_12, OUTPUT);
     pinMode(RE, OUTPUT);
     digitalWrite(GPIO_NUM_12, HIGH);
@@ -251,7 +251,7 @@ void loop()
 void initUART()
 {
     Serial.end();
-    Serial.begin(UARTparam.baud, SERIAL_8N1, UARTparam.rxd, UARTparam.txd, UARTparam.inverted);
+    Serial.begin(UARTparam.baud, UARTparam.parity, UARTparam.rxd, UARTparam.txd, UARTparam.inverted);
 }
 
 void sendData()
@@ -285,10 +285,16 @@ void askKey()
 void setupPreferences()
 {
     config.begin("config", false);
+
     INCOME_BUFFER = config.getInt("buffer", 32);
     sendTime = config.getInt("time", 1000);
     sendToDevice = config.getBool("send", true);
-    pinc = config.getString("pinc", "12345");
+    pinc = config.getString("pinc", master);
+
+    UARTparam.baud = config.getInt("baud", 1200);
+    UARTparam.isAuto = config.getBool("isAuto", true);
+    UARTparam.isRS232 = config.getBool("isRS232", true);
+    UARTparam.parity = config.getInt("parity", SERIAL_8N1);
 }
 
 void sendFail()
@@ -325,7 +331,6 @@ void lexator()
         if (command == "PAUSE")
         {
             sendToDevice = false;
-            config.putBool("send", false);
             SerialBT.println(debugging.sta_1);
             // break;
         }
@@ -394,6 +399,78 @@ void lexator()
                 {
                     SerialBT.println(debugging.err_6);
                 }
+            }
+            else if (cmd[0] == "RESET_PASSWORD"){
+                config.putString("pinc", master);
+                Blue_send(debugging.sta_11);
+            }
+            else if (cmd[0] == "RESTART"){
+                ESP.restart();
+            }
+            else if(cmd[0] == "STATUS"){
+                String Status = "\n--------------STATUS---------------\n"; 
+                Status += "Baudrate: " + String(UARTparam.baud) + "\n";
+                Status += "Parity: " + String(UARTparam.parity) + "\n";
+                if(UARTparam.isRS232){
+                    Status += "Protocol: RS232\n";
+                }else{
+                    Status += "Protocol: RS485\n";
+                }
+                if(UARTparam.isAuto){
+                    Status += "Baudrate detection: Automatic\n";
+                }else{
+                    Status += "Baudrate detection: Manual\n";
+                }
+                if(sendToDevice){
+                    Status += "Send status: SENDING\n";
+                }else{
+                    Status += "Send status: PAUSED\n";
+                }
+                Status += "Device ID: " + String(std::to_string(ESP.getEfuseMac()).c_str()) + "\n";
+                Status += "Buffer: " + String(std::to_string(INCOME_BUFFER).c_str()) + "\n";
+                Status += "Send time: " + String(std::to_string(sendTime).c_str()) + "\n";
+                Status += "-----------------------------------\n";
+                Blue_send(Status);
+            }
+            else if (cmd[0] == "UART")
+            {
+                if (cmd[1] == "AUTO")
+                {
+                    UARTparam.isAuto = true;
+                    UARTparam.parity = SERIAL_8N1;
+                    config.putBool("isAuto", UARTparam.isAuto);
+                    config.putInt("parity", UARTparam.parity);
+                    SerialBT.println(debugging.sta_8);
+                    currentState = DETERMINATE_BAUD_232_NI;
+                    return;
+                }
+                else
+                {
+                    UARTparam.baud = std::stoi(cmd[1].c_str());
+                    UARTparam.isAuto = false;
+                    config.putInt("baud", UARTparam.baud);
+                    config.putBool("isAuto", UARTparam.isAuto);
+                    try
+                    {
+                        if (cmd[2] == "RS232")
+                        {
+                            UARTparam.isRS232 = true;
+                        }
+                        else if (cmd[2] == "RS232")
+                        {
+                            UARTparam.isRS232 = false;
+                        }
+                        config.putBool("isRS232", UARTparam.isRS232 );
+                    }
+                    catch (const std::exception &e)
+                    {
+                        SerialBT.println(debugging.sta_9);
+                    }
+                    determinateParity(cmd[3]);
+                    config.putInt("parity", UARTparam.parity);
+                    SerialBT.println(debugging.sta_9 + cmd[1]);
+                }
+                currentState = MANAGE_UART;
             }
             else
             {

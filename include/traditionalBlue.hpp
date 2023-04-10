@@ -30,7 +30,7 @@ void BTAuthCompleteCallback(boolean success)
     confirmRequestPending = false;
 }
 
-void Blue_setup(const char *deviceName, const char *pin_)
+void Blue_setup(const char *deviceName)
 {
     esp_bt_sp_param_t param_type = ESP_BT_SP_IOCAP_MODE;
 
@@ -133,12 +133,15 @@ bool askForKey(const char *_pin_)
                 if (cmd[1] == "AUTO")
                 {
                     UARTparam.isAuto = true;
+                    config.putBool("isAuto", UARTparam.isAuto);
                     SerialBT.println(debugging.sta_8);
                 }
                 else
                 {
                     UARTparam.baud = std::stoi(cmd[1].c_str());
                     UARTparam.isAuto = false;
+                    config.putInt("baud", UARTparam.baud);
+                    config.putBool("isAuto", UARTparam.isAuto);
                     try
                     {
                         if (cmd[2] == "RS232")
@@ -149,14 +152,17 @@ bool askForKey(const char *_pin_)
                         {
                             UARTparam.isRS232 = false;
                         }
+                        config.putBool("isRS232", UARTparam.isRS232 );
                     }
                     catch (const std::exception &e)
                     {
                         SerialBT.println(debugging.sta_9);
                     }
                     determinateParity(cmd[3]);
+                    config.putInt("parity", UARTparam.parity);
                     SerialBT.println(debugging.sta_9 + cmd[1]);
                 }
+                
             }
         }
         if (!isAnyone())
