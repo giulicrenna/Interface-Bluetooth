@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <HardwareSerial.h>
 #include <Preferences.h>
+#include <esp32/rom/uart.h>
 
 #include "mStandars.h"
 #include "global.hpp"
@@ -494,4 +495,8 @@ void blink(int timelapse)
         digitalWrite(PIN_RED, ledState);
         previousMillis = millis();
     }
+}
+
+void test(){
+    
 }
