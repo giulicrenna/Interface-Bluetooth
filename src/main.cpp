@@ -35,6 +35,7 @@ void askKey();
 void sendTest();
 void sendFail();
 void sendData();
+void sendByPetition();
 void lexator();
 
 void task1(void *param)
@@ -181,7 +182,21 @@ void task2(void *parameters)
         case INIT_UART:
         {
             initUART();
+            if(petitionMode){
+                currentState = SEND_BY_PETITION;
+                break;    
+            }
             currentState = READ_DATA;
+            break;
+        }
+
+        case SEND_BY_PETITION:
+        {
+            if(petition){
+                sendByPetition();
+                petition = false;
+            }
+
             break;
         }
 
@@ -221,7 +236,6 @@ void task2(void *parameters)
 
 void setup()
 {
-    // BLE_setup();
     setupPreferences();
     Blue_setup(deviceName);
     xTaskCreatePinnedToCore(
@@ -253,20 +267,24 @@ void initUART()
 {
     Serial.end();
     Serial.begin(UARTparam.baud, UARTparam.parity, UARTparam.rxd, UARTparam.txd, UARTparam.inverted);
+    Serial.setTimeout(3);
+}
+
+void sendByPetition(){
+    if (Serial.available()) {
+        String temp = Serial.readString();
+        Blue_send(temp);
+    }
 }
 
 void sendData()
 {
+    if (Serial.available()) {
+        msg = Serial.readString();
+    }
     if (millis() - currentTimeSendMessage >= sendTime && sendToDevice)
     {
-        char msg[INCOME_BUFFER];
-        if (Serial.available() > 0)
-        {
-            Serial.readBytes(msg, INCOME_BUFFER);
-        }
-
-        String temp(std::string(msg).substr(0, INCOME_BUFFER - 4).c_str());
-        Blue_send(temp);
+        Blue_send(msg);
         currentTimeSendMessage = millis();
     }
 }
@@ -296,6 +314,7 @@ void setupPreferences()
     UARTparam.isAuto = config.getBool("isAuto", true);
     UARTparam.isRS232 = config.getBool("isRS232", true);
     UARTparam.parity = config.getInt("parity", SERIAL_8N1);
+    petitionMode = config.getBool("petitionMode", true);
 }
 
 void sendFail()
@@ -340,6 +359,9 @@ void lexator()
             sendToDevice = true;
             config.putBool("send", true);
             SerialBT.println(debugging.sta_2);
+        }
+        else if(command == "SEND_BUFFER"){
+            petition = true;
         }
         else
         {
@@ -473,6 +495,21 @@ void lexator()
                 }
                 currentState = MANAGE_UART;
             }
+            else if(cmd[0] == "PETITION_MODE"){
+                if(cmd[1] == "FALSE"){
+                    petitionMode = false;
+                    config.putBool("petitionMode", petitionMode);
+                    currentState = READ_DATA;
+                    SerialBT.println(debugging.sta_12);
+                }else if(cmd[1] == "TRUE"){
+                    petitionMode = true;
+                    config.putBool("petitionMode", petitionMode);
+                    currentState = SEND_BY_PETITION;
+                    SerialBT.println(debugging.sta_12);
+                }else{
+                    SerialBT.println(debugging.err_7);
+                }
+            }
             else
             {
                 SerialBT.println(debugging.err_7);
@@ -498,5 +535,8 @@ void blink(int timelapse)
 }
 
 void test(){
-    
+    Serial.onReceive();
+    Serial.readString();
+    //Serial.onReceiveError();
+    Serial.readBytes(msg, INCOME_BUFFER);
 }

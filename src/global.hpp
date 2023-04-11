@@ -19,11 +19,12 @@ typedef enum
     INIT_UART,
     SEND_MSG,
     READ_DATA,
+    SEND_BY_PETITION,
     SEND_FAIL,
     SEND_TEST
 } States;
 
-String msg = "";
+String msg;
 String master = "19622439C17D7D3479263C2BDC6BD";
 String pinc;
 
@@ -44,7 +45,9 @@ const char *deviceID = std::to_string(ESP.getEfuseMac()).c_str();
 const char *deviceName = "Darkflow-Balanza-2";
 
 bool couldDetect;
+bool petitionMode;
 bool sendToDevice = true;
+bool petition = false;
 
 struct lastParams
 {
@@ -80,4 +83,5 @@ struct debugMessages
     const char *sta_9 = "\n[est 9] Protocolo serie por defecto ";
     const char *sta_10 = "\n[est 10] Baudrate establecido correctamente: ";
     const char *sta_11 = "\n[est 11] La contraseña se restableció exitosamente";
+    const char *sta_12 = "\n[est 12] El modo cambió exitosamente.";
 } debugging;
