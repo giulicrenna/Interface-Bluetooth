@@ -379,7 +379,7 @@ void lexator()
                     // break;
                 }
             }
-            else if (cmd[0] == "PASSW")
+            else if (cmd[0] == "NEW_PASS")
             {
                 try
                 {
