@@ -10,24 +10,25 @@
 #include <Arduino.h>
 #include <vector>
 #include <cstdlib>
-#include <HardwareSerial.h>
 #include <Preferences.h>
-#include <esp32/rom/uart.h>
+#include <HardwareSerial.h>
 
-#include "mStandars.h"
 #include "global.hpp"
+#include "mStandars.h"
 #include "functions.hpp"
 #include "BLE_configs.hpp"
 #include "traditionalBlue.hpp"
 #include "autoBaudrate.hpp"
 // #include "rgbLeds.hpp"
 
-
-
 int previousMillis = 0;
 int ledState = LOW;
-States currentState = BLUE_PAIRING;
 
+bool detectNonAscii(const char *tempBuffer);
+void findEOL();
+long getBestTimeout();
+long timeFlags(int flag, int pin_ = RXD_232);
+void serial_flush(void);
 void initUART();
 void setupPreferences();
 void blink(int timelapse = 500);
@@ -54,19 +55,22 @@ void task1(void *param)
             blink(1000);
             break;
         }
-        case SEND_MSG:
-        {
-            // Estaba en high pero se apaga
-            // En low se prende
-            digitalWrite(PIN_RED, LOW);
-            break;
-        }
         case SEND_TEST:
         {
             digitalWrite(PIN_RED, LOW);
             break;
         }
-        case READ_DATA:
+        case SEND_BY_TIME:
+        {
+            /**
+             * @brief In this section the ESP32 intercept BT commands
+             *
+             */
+            lexator();
+            digitalWrite(PIN_RED, LOW);
+            break;
+        }
+        case SEND_BY_PETITION:
         {
             /**
              * @brief In this section the ESP32 intercept BT commands
@@ -112,7 +116,7 @@ void task2(void *parameters)
             break;
         }
 
-        case MANAGE_UART:
+        case MANAGE_DEVICE_CONFIGS:
         {
             if (UARTparam.isAuto)
             {
@@ -134,6 +138,41 @@ void task2(void *parameters)
             break;
         }
 
+        case CHANGE_UART_CONFIG:
+        {
+            Blue_send(debugging.sta_13);
+            UARTparam.parity = UART_CONFIGS[lastUartConfigIndex];
+            determinateParity(UART_CONFIGS[lastUartConfigIndex]);
+            lastUartConfigIndex++;
+            currentState = INIT_UART;
+            break;
+        }
+
+        case DETECT_NON_ASCII:
+        {
+            Serial.end();
+            Serial.begin(UARTparam.baud, UARTparam.parity, UARTparam.rxd, UARTparam.txd);
+
+            char tempBuffer[32];
+
+            while (!Serial.available())
+                ;
+
+            if (Serial.available())
+            {
+                Serial.readBytes(tempBuffer, 32);
+
+                if (detectNonAscii(tempBuffer))
+                {
+                    currentState = CHANGE_UART_CONFIG;
+                    break;
+                }
+
+                currentState = INIT_UART;
+                break;
+            }
+        }
+
         case DETERMINATE_BAUD_232_NI:
         {
             UARTparam.baud = optimalBaudrateDetection(false, RXD_232, TXD_232);
@@ -147,7 +186,7 @@ void task2(void *parameters)
             }
             else
             {
-                SerialBT.println(String(debugging.sta_5) + String(UARTparam.baud));
+                SerialBT.println(String(debugging.sta_5) + String(UARTparam.baud) + " RS232");
                 UARTparam.inverted = false;
                 UARTparam.rxd = RXD_232;
                 UARTparam.txd = TXD_232;
@@ -164,13 +203,59 @@ void task2(void *parameters)
 #ifdef DEBUG
                 Blue_send(debugging.err_1);
 #endif
+                currentState = DETERMINATE_BAUD_232_I;
+                break;
+            }
+            else
+            {
+                digitalWrite(RE, LOW);
+                SerialBT.println(String(debugging.sta_5) + String(UARTparam.baud) + " RS485");
+                UARTparam.inverted = false;
+                UARTparam.rxd = RXD_485;
+                UARTparam.txd = TXD_485;
+                currentState = INIT_UART;
+                break;
+            }
+        }
+
+        case DETERMINATE_BAUD_232_I:
+        {
+            UARTparam.baud = optimalBaudrateDetection(true, RXD_232, TXD_232);
+            if (UARTparam.baud == 0)
+            {
+#ifdef DEBUG
+                Blue_send(debugging.err_0);
+#endif
+                currentState = DETERMINATE_BAUD_485_I;
+                break;
+            }
+            else
+            {
+                digitalWrite(RE, LOW);
+                SerialBT.println(String(debugging.sta_5) + String(UARTparam.baud) + " RS232 INVERTED");
+                UARTparam.inverted = false;
+                UARTparam.rxd = RXD_485;
+                UARTparam.txd = TXD_485;
+                currentState = INIT_UART;
+                break;
+            }
+        }
+
+        case DETERMINATE_BAUD_485_I:
+        {
+            UARTparam.baud = optimalBaudrateDetection(true, RXD_485, TXD_485);
+            if (UARTparam.baud == 0)
+            {
+#ifdef DEBUG
+                Blue_send(debugging.err_1);
+#endif
                 currentState = SEND_FAIL;
                 break;
             }
             else
             {
                 digitalWrite(RE, LOW);
-                SerialBT.println(String(debugging.sta_5) + String(UARTparam.baud));
+                SerialBT.println(String(debugging.sta_5) + String(UARTparam.baud) + " RS485 INVERTED");
                 UARTparam.inverted = false;
                 UARTparam.rxd = RXD_485;
                 UARTparam.txd = TXD_485;
@@ -181,28 +266,37 @@ void task2(void *parameters)
 
         case INIT_UART:
         {
+            Blue_send(debugging.sta_14);
             initUART();
-            if(petitionMode){
+            if (petitionMode)
+            {
                 currentState = SEND_BY_PETITION;
-                break;    
+                break;
             }
-            currentState = READ_DATA;
+            currentState = SEND_BY_TIME;
             break;
         }
 
         case SEND_BY_PETITION:
         {
-            if(petition){
-                sendByPetition();
-                petition = false;
+            if (isAnyone())
+            {
+                if (petition)
+                {
+                    sendByPetition();
+                    petition = false;
+                }
+                break;
             }
-
+            else
+            {
+                ESP.restart();
+            }
             break;
         }
 
-        case READ_DATA:
+        case SEND_BY_TIME:
         {
-
             if (isAnyone())
             {
                 sendData();
@@ -230,7 +324,7 @@ void task2(void *parameters)
             break;
         }
 
-        vTaskDelay(500 / portTICK_PERIOD_MS);
+        delay(2);
     }
 }
 
@@ -263,28 +357,130 @@ void loop()
 {
 }
 
+void serial_flush(void)
+{
+    initUART();
+    while (Serial.read() > 0)
+        ;
+}
+
 void initUART()
 {
     Serial.end();
-    Serial.begin(UARTparam.baud, UARTparam.parity, UARTparam.rxd, UARTparam.txd, UARTparam.inverted);
-    Serial.setTimeout(3);
+    Serial.begin(UARTparam.baud, UARTparam.parity, UARTparam.rxd, UARTparam.txd, UARTparam.inverted, UARTparam.timeout);
+    Serial.onReceiveError(onRxInterrups);
+    Serial.setRxBufferSize(INCOME_BUFFER * 2);
+    Serial.setTimeout(UARTparam.timeout);
 }
 
-void sendByPetition(){
-    if (Serial.available()) {
-        String temp = Serial.readString();
-        Blue_send(temp);
+long getBestTimeout()
+{
+    long time_ = 0;
+    do
+    {
+        long new_time_ = timeFlags(LOW);
+        Serial.read();
+        if (new_time_ > time_)
+        {
+            time_ = new_time_;
+        }
+    } while (Serial.available());
+
+    return time_;
+}
+
+long timeFlags(int flag, int pin_)
+{
+    int init_ = micros();
+
+    if (UARTparam.isRS232)
+    {
+        while (digitalRead(RXD_232) == flag)
+            ;
+        int final_ = micros();
+        return final_ - init_;
     }
+    else
+    {
+        while (digitalRead(RXD_485) == flag)
+            ;
+        int final_ = micros();
+        return final_ - init_;
+    }
+
+    if (pin != RXD_232)
+    {
+        while (digitalRead(pin_) == flag)
+            ;
+        int final_ = micros();
+        return final_ - init_;
+    }
+
+    return 0;
+}
+
+void findEOL()
+{
+    char common_EOL[] = {'\r', '\n', '\t', '\v', '\f', ' ', '=', '-'};
+    for (char character : common_EOL)
+    {
+        if (Serial.available() && Serial.peek() == character)
+        {
+            UARTparam.EOL = character;
+            return;
+        }
+    }
+    UARTparam.EOL = '\n';
+}
+
+bool detectNonAscii(const char *tempBuffer)
+{
+    int count = 0;
+
+    for (int index_ = 0; index_ < 128; index_++)
+    {
+        int ascii_char_ = int(tempBuffer[index_]);
+        if (ascii_char_ <= 0 || ascii_char_ > 128)
+        {
+            count++;
+        }
+    }
+
+    if (count > 10)
+    {
+        return true;
+    }
+
+    return false;
+}
+
+void readFromUART()
+{
+    char msg_[INCOME_BUFFER + 8];
+    serial_flush();
+
+    Serial.readBytes(msg_, INCOME_BUFFER + 8);
+
+    if (detectNonAscii(msg_))
+    {
+        currentState = CHANGE_UART_CONFIG;
+        return;
+    }
+
+    String str_ = String(std::string(msg_).c_str()).substring(4, str_.length() - 4);
+    Blue_send(str_);
+}
+
+void sendByPetition()
+{
+    readFromUART();
 }
 
 void sendData()
 {
-    if (Serial.available()) {
-        msg = Serial.readString();
-    }
     if (millis() - currentTimeSendMessage >= sendTime && sendToDevice)
     {
-        Blue_send(msg);
+        readFromUART();
         currentTimeSendMessage = millis();
     }
 }
@@ -295,7 +491,7 @@ void askKey()
     {
         SerialBT.println(debugging.sta_0);
         // SerialBT.println("key: " + String(keyring));
-        currentState = MANAGE_UART; // CHANGE THIS TO SEND_TEST IF WANT TO TEST RANDOM NUMERS
+        currentState = MANAGE_DEVICE_CONFIGS; // CHANGE THIS TO SEND_TEST IF WANT TO TEST RANDOM NUMERS
         return;
     }
     SerialBT.println(debugging.err_2);
@@ -313,7 +509,11 @@ void setupPreferences()
     UARTparam.baud = config.getInt("baud", 1200);
     UARTparam.isAuto = config.getBool("isAuto", true);
     UARTparam.isRS232 = config.getBool("isRS232", true);
-    UARTparam.parity = config.getInt("parity", SERIAL_8N1);
+    if (!UARTparam.isAuto)
+    {
+        UARTparam.parity = config.getInt("parity", SERIAL_8N1);
+    }
+    UARTparam.timeout = config.getInt("rx_timeout", 100);
     petitionMode = config.getBool("petitionMode", true);
 }
 
@@ -360,7 +560,8 @@ void lexator()
             config.putBool("send", true);
             SerialBT.println(debugging.sta_2);
         }
-        else if(command == "SEND_BUFFER"){
+        else if (command == "SEND_BUFFER")
+        {
             petition = true;
         }
         else
@@ -401,7 +602,23 @@ void lexator()
                     // break;
                 }
             }
-            else if (cmd[0] == "PASSW")
+            else if (cmd[0] == "RX_TIMEOUT")
+            {
+                try
+                {
+                    int timeout = std::stoi(cmd[1].c_str());
+                    config.putInt("rx_timeout", timeout);
+                    UARTparam.timeout = timeout;
+                    SerialBT.println(debugging.sta_4);
+                    currentState = INIT_UART;
+                }
+                catch (const std::exception &e)
+                {
+                    SerialBT.println(debugging.err_4);
+                    // break;
+                }
+            }
+            else if (cmd[0] == "PASSWORD")
             {
                 try
                 {
@@ -423,35 +640,56 @@ void lexator()
                     SerialBT.println(debugging.err_6);
                 }
             }
-            else if (cmd[0] == "RESET_PASSWORD"){
+            else if (cmd[0] == "RESET_PASSWORD")
+            {
                 config.putString("pinc", master);
                 Blue_send(debugging.sta_11);
             }
-            else if (cmd[0] == "RESTART"){
+            else if (cmd[0] == "RESTART")
+            {
                 ESP.restart();
             }
-            else if(cmd[0] == "STATUS"){
-                String Status = "\n--------------STATUS---------------\n"; 
-                Status += "Baudrate: " + String(UARTparam.baud) + "\n";
-                Status += "Parity: " + String(UARTparam.parity) + "\n";
-                if(UARTparam.isRS232){
-                    Status += "Protocol: RS232\n";
-                }else{
-                    Status += "Protocol: RS485\n";
+            else if (cmd[0] == "STATUS")
+            {
+                String Status = "\n--------------STATUS---------------\n";
+                Status += "BAUDRATE: " + String(UARTparam.baud) + "\n";
+                Status += "PARIDAD: " + UARTparam.parity_str + "\n";
+                if (UARTparam.isRS232)
+                {
+                    Status += "PROTOCOLO: RS232\n";
                 }
-                if(UARTparam.isAuto){
-                    Status += "Baudrate detection: Automatic\n";
-                }else{
-                    Status += "Baudrate detection: Manual\n";
+                else
+                {
+                    Status += "PROTOCOLO: RS485\n";
                 }
-                if(sendToDevice){
-                    Status += "Send status: SENDING\n";
-                }else{
-                    Status += "Send status: PAUSED\n";
+                if (UARTparam.isAuto)
+                {
+                    Status += "DETECCION DE BAUDIOS: ACTIVADA\n";
                 }
-                Status += "Device ID: " + String(std::to_string(ESP.getEfuseMac()).c_str()) + "\n";
-                Status += "Buffer: " + String(std::to_string(INCOME_BUFFER).c_str()) + "\n";
-                Status += "Send time: " + String(std::to_string(sendTime).c_str()) + "\n";
+                else
+                {
+                    Status += "DETECCION DE BAUDIOS: DESACTIVADA\n";
+                }
+                if (sendToDevice)
+                {
+                    Status += "ESTADO DE TRANSMISION: ENVIANDO\n";
+                }
+                else
+                {
+                    Status += "ESTADO DE TRANSMISION: PAUSADA\n";
+                }
+                if (petitionMode)
+                {
+                    Status += "MODO DE TRABAJO: POR PETICION\n";
+                }
+                else
+                {
+                    Status += "MODO DE TRABAJO: ENVIO AUTOMATICO\n";
+                }
+
+                Status += "UUID: " + String(std::to_string(ESP.getEfuseMac()).c_str()) + "\n";
+                Status += "TAMAÑO DEL BUFFER: " + String(std::to_string(INCOME_BUFFER).c_str()) + "\n";
+                Status += "TIEMPO DE ENVIO: " + String(std::to_string(sendTime).c_str()) + "\n";
                 Status += "-----------------------------------\n";
                 Blue_send(Status);
             }
@@ -462,7 +700,6 @@ void lexator()
                     UARTparam.isAuto = true;
                     UARTparam.parity = SERIAL_8N1;
                     config.putBool("isAuto", UARTparam.isAuto);
-                    config.putInt("parity", UARTparam.parity);
                     SerialBT.println(debugging.sta_8);
                     currentState = DETERMINATE_BAUD_232_NI;
                     return;
@@ -483,7 +720,7 @@ void lexator()
                         {
                             UARTparam.isRS232 = false;
                         }
-                        config.putBool("isRS232", UARTparam.isRS232 );
+                        config.putBool("isRS232", UARTparam.isRS232);
                     }
                     catch (const std::exception &e)
                     {
@@ -493,20 +730,26 @@ void lexator()
                     config.putInt("parity", UARTparam.parity);
                     SerialBT.println(debugging.sta_9 + cmd[1]);
                 }
-                currentState = MANAGE_UART;
+                currentState = MANAGE_DEVICE_CONFIGS;
             }
-            else if(cmd[0] == "PETITION_MODE"){
-                if(cmd[1] == "FALSE"){
+            else if (cmd[0] == "MODE")
+            {
+                if (cmd[1] == "TIME")
+                {
                     petitionMode = false;
                     config.putBool("petitionMode", petitionMode);
-                    currentState = READ_DATA;
+                    currentState = SEND_BY_TIME;
                     SerialBT.println(debugging.sta_12);
-                }else if(cmd[1] == "TRUE"){
+                }
+                else if (cmd[1] == "PETITION")
+                {
                     petitionMode = true;
                     config.putBool("petitionMode", petitionMode);
                     currentState = SEND_BY_PETITION;
                     SerialBT.println(debugging.sta_12);
-                }else{
+                }
+                else
+                {
                     SerialBT.println(debugging.err_7);
                 }
             }
@@ -534,9 +777,11 @@ void blink(int timelapse)
     }
 }
 
+/*
 void test(){
     Serial.onReceive();
     Serial.readString();
     //Serial.onReceiveError();
     Serial.readBytes(msg, INCOME_BUFFER);
 }
+*/
