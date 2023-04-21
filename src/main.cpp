@@ -11,6 +11,8 @@
 #include <vector>
 #include <cstdlib>
 #include <Preferences.h>
+#include <map>
+#include <list>
 #include <HardwareSerial.h>
 
 #include "global.hpp"
@@ -368,7 +370,8 @@ void initUART()
 {
     Serial.end();
     Serial.begin(UARTparam.baud, UARTparam.parity, UARTparam.rxd, UARTparam.txd, UARTparam.inverted, UARTparam.timeout);
-    Serial.onReceiveError(onRxInterrups);
+    if (couldDetectUartConfig)
+        Serial.onReceiveError(onRxInterrups);
     Serial.setRxBufferSize(INCOME_BUFFER * 2);
     Serial.setTimeout(UARTparam.timeout);
 }
@@ -461,10 +464,15 @@ void readFromUART()
 
     Serial.readBytes(msg_, INCOME_BUFFER + 8);
 
-    if (detectNonAscii(msg_))
+    if (millis() - currentCheckAscii > 10000)
     {
-        currentState = CHANGE_UART_CONFIG;
-        return;
+        if (detectNonAscii(msg_) && couldDetectUartConfig)
+        {
+            currentState = CHANGE_UART_CONFIG;
+            return;
+        }
+
+        currentCheckAscii = millis();
     }
 
     String str_ = String(std::string(msg_).c_str()).substring(4, str_.length() - 4);
@@ -509,6 +517,7 @@ void setupPreferences()
     UARTparam.baud = config.getInt("baud", 1200);
     UARTparam.isAuto = config.getBool("isAuto", true);
     UARTparam.isRS232 = config.getBool("isRS232", true);
+    couldDetectUartConfig = config.getBool("couldDetectUartConfig", false);
     if (!UARTparam.isAuto)
     {
         UARTparam.parity = config.getInt("parity", SERIAL_8N1);
@@ -548,21 +557,44 @@ void lexator()
     {
         String command = SerialBT.readString();
         command.trim();
-        if (command == "PAUSE")
+        if (command == commandList.cmd_1)
         {
             sendToDevice = false;
             SerialBT.println(debugging.sta_1);
             // break;
         }
-        else if (command == "CONTINUE")
+        else if (command == commandList.cmd_2)
         {
             sendToDevice = true;
             config.putBool("send", true);
             SerialBT.println(debugging.sta_2);
         }
-        else if (command == "SEND_BUFFER")
+        else if (command == commandList.cmd_3)
         {
             petition = true;
+        }
+        else if (command == commandList.cmd_4)
+        {
+            config.clear();
+        }
+        else if(command == commandList.help){
+            Blue_send("\n----COMMANDS HELP----\n");
+            Blue_send(commandList.cmd_1_exp);
+            Blue_send(commandList.cmd_2_exp);
+            Blue_send(commandList.cmd_3_exp);
+            Blue_send(commandList.cmd_4_exp);
+            Blue_send(commandList.cmd_5_exp);
+            Blue_send(commandList.cmd_6_exp);
+            Blue_send(commandList.cmd_7_exp);
+            Blue_send(commandList.cmd_8_exp);
+            Blue_send(commandList.cmd_9_exp);
+            Blue_send(commandList.cmd_9_exp);
+            Blue_send(commandList.cmd_10_exp);
+            Blue_send(commandList.cmd_11_exp);
+            Blue_send(commandList.cmd_12_exp);
+            Blue_send(commandList.cmd_13_exp);
+            Blue_send(commandList.cmd_14_exp);
+            Blue_send("\n-------------------\n");
         }
         else
         {
@@ -572,7 +604,7 @@ void lexator()
             {
                 cmd[k] = String(cmd_v.at(k).c_str());
             }
-            if (cmd[0] == "TIME")
+            if (cmd[0] == commandList.cmd_5)
             {
                 try
                 {
@@ -587,7 +619,7 @@ void lexator()
                     // break;
                 }
             }
-            else if (cmd[0] == "BUFFER")
+            else if (cmd[0] == commandList.cmd_6)
             {
                 try
                 {
@@ -602,7 +634,7 @@ void lexator()
                     // break;
                 }
             }
-            else if (cmd[0] == "RX_TIMEOUT")
+            else if (cmd[0] == commandList.cmd_7)
             {
                 try
                 {
@@ -618,7 +650,7 @@ void lexator()
                     // break;
                 }
             }
-            else if (cmd[0] == "PASSWORD")
+            else if (cmd[0] == commandList.cmd_8)
             {
                 try
                 {
@@ -640,16 +672,16 @@ void lexator()
                     SerialBT.println(debugging.err_6);
                 }
             }
-            else if (cmd[0] == "RESET_PASSWORD")
+            else if (cmd[0] == commandList.cmd_9)
             {
                 config.putString("pinc", master);
                 Blue_send(debugging.sta_11);
             }
-            else if (cmd[0] == "RESTART")
+            else if (cmd[0] == commandList.cmd_10)
             {
                 ESP.restart();
             }
-            else if (cmd[0] == "STATUS")
+            else if (cmd[0] == commandList.cmd_14)
             {
                 String Status = "\n--------------STATUS---------------\n";
                 Status += "BAUDRATE: " + String(UARTparam.baud) + "\n";
@@ -693,9 +725,9 @@ void lexator()
                 Status += "-----------------------------------\n";
                 Blue_send(Status);
             }
-            else if (cmd[0] == "UART")
+            else if (cmd[0] == commandList.cmd_11)
             {
-                if (cmd[1] == "AUTO")
+                if (cmd[1] == commandList.cmd_11_param_1)
                 {
                     UARTparam.isAuto = true;
                     UARTparam.parity = SERIAL_8N1;
@@ -732,16 +764,16 @@ void lexator()
                 }
                 currentState = MANAGE_DEVICE_CONFIGS;
             }
-            else if (cmd[0] == "MODE")
+            else if (cmd[0] == commandList.cmd_12_exp)
             {
-                if (cmd[1] == "TIME")
+                if (cmd[1] == commandList.cmd_12_param_1)
                 {
                     petitionMode = false;
                     config.putBool("petitionMode", petitionMode);
                     currentState = SEND_BY_TIME;
                     SerialBT.println(debugging.sta_12);
                 }
-                else if (cmd[1] == "PETITION")
+                else if (cmd[1] == commandList.cmd_12_param_2)
                 {
                     petitionMode = true;
                     config.putBool("petitionMode", petitionMode);
@@ -753,10 +785,28 @@ void lexator()
                     SerialBT.println(debugging.err_7);
                 }
             }
+            else if (cmd[0] == commandList.cmd_13)
+            {
+                if (cmd[1] == commandList.cmd_13_param_1)
+                {
+                    couldDetectUartConfig = true;
+                    config.putBool("couldDetectUartConfig", couldDetectUartConfig);
+                }
+                else if (cmd[1] == commandList.cmd_13_param_2)
+                {
+                    couldDetectUartConfig = false;
+                }
+                else
+                {
+                    SerialBT.println(debugging.err_7);
+                    config.putBool("couldDetectUartConfig", couldDetectUartConfig);
+                }
+            }
             else
             {
                 SerialBT.println(debugging.err_7);
             }
+
             // break;
         }
     }

@@ -42,6 +42,7 @@ int pin;
 int lastUartConfigIndex = 0;
 
 uint64_t currentTimeBluetoothMessage = 0;
+uint64_t currentCheckAscii = 0;
 uint64_t currentTimeSendMessage = 0;
 uint64_t currentTimeBluetoothTestMessage = 0;
 uint64_t bluetoothMessageTime = 1000;
@@ -50,6 +51,7 @@ const char *deviceID = std::to_string(ESP.getEfuseMac()).c_str();
 const char *deviceName = "Darkflow-Balanza-2";
 
 bool couldDetect;
+bool couldDetectUartConfig;
 bool petitionMode;
 bool sendToDevice = true;
 bool petition = false;
@@ -99,3 +101,58 @@ struct debugMessages
     const char *sta_13 = "\n[est 13] Cambiando la configuracion de la UART";
     const char *sta_14 = "\n[est 14] Inicializando UART";
 } debugging;
+
+
+//std::map<const char*, std::list<std::map<const char*, const char*>>> commandList;
+
+struct command_types{
+    const char *cmd_1 = "PAUSE";
+    const char *cmd_1_exp = "\n[PAUSE] \nSTOP THE TRANSMISION WHEN THE SENDING MODE IS BY TIME.";
+
+    const char *cmd_2 = "CONTINUE";
+    const char *cmd_2_exp = "\n[CONTINUE] \nCONTINUE THE TRANSMISION WHEN THE SENDING MODE IS BY TIME.";
+
+    const char *cmd_3 = "SEND_BUFFER";
+    const char *cmd_3_exp = "\n[SEND_BUFFER] \nSENDS A SINGLE TRANSMISION BUFFER WHEN THE BUFFER IS FULL AND THE SENDING MODE YS BY PETITION.";
+
+    const char *cmd_4 = "RESET_CONFIGS";
+    const char *cmd_4_exp = "\n[RESET_CONFIGS] \nRESETS ALL THE STORED CONFIGS.";
+
+    const char *cmd_5 = "TIME";
+    const char *cmd_5_exp = "\n[TIME:INT] \nSETS THE TIME BETWEEN EACH TRANSMISION.\nTHE FIRST PARAM. IS THE TIME IN MILLISECONDS.";
+
+    const char *cmd_6 = "BUFFER";
+    const char *cmd_6_exp = "\n[BUFFER:INT] \nSETS THE BUFFER OF THE TRANSMISION LENGHT.\nTHE FIRST PARAM. IS THE BUFFER SIZE IN BYTES.";
+
+    const char *cmd_7 = "RX_TIMEOUT";
+    const char *cmd_7_exp = "\n[RX_TIMEOUT:INT] \nSETS THE TIMEOUT OF THE RX PINS.\nTHE FIRST PARAM. IS THE TIME OF THE TIMEOUT IN MILLISECONDS.";
+
+    const char *cmd_8 = "PASSWORD";
+    const char *cmd_8_exp = "\n[PASSWORD:STRING] \nSENDS THE PASSWORD TO THE BOARD; IF THE PASSWORD IS CORRECT IT WILL START SENDING DATA.\n THE FIRST PARAM. IS THE PASSWORD.";
+
+    const char *cmd_9 = "RESET_PASSWORD";
+    const char *cmd_9_exp = "\n[RESET_PASSWORD] \nRESET THE PASSWORD TO THE DEFAULT TOKEN.";
+
+    const char *cmd_10 = "RESTART";
+    const char *cmd_10_exp = "\n[RESTART] \nREBOOT THE DEVICE.";
+
+    const char *cmd_11 = "UART";
+    const char *cmd_11_param_1 = "AUTO"; 
+    const char *cmd_11_exp = "\n[UART:STRING/INT:STRING] \nCONFIGURES THE UART.\nIF THE FIRST PARAM IS AUTO, THE BAUDRATE WILL BE AUTOMATICALLY DETECTED. THE SECOND PARAMETER IS THE UART PARTITY AND STOP BIT.";
+
+    const char *cmd_12 = "MODE";
+    const char *cmd_12_param_1 = "TIME"; 
+    const char *cmd_12_param_2 = "PETITION"; 
+    const char *cmd_12_exp = "\n[MODE:TIME/PETITION] \nCONFIGURES DEVICE MODE.";
+
+    const char *cmd_13 = "AUTO_UART_CONFIG";
+    const char *cmd_13_param_1 = "TRUE"; 
+    const char *cmd_13_param_2 = "FALSE"; 
+    const char *cmd_13_exp = "\n[AUTO_UART_CONFIG:BOOLEAN] \nSETS IF THE DETECTION OF THE UART CONFIG IS AUTOMATICALLY (EXPERIMENTAL).";
+
+    const char *cmd_14 = "STATUS";
+    const char *cmd_14_exp = "\n[STATUS] \nSENDS THE CURRENT CONFIG.";
+
+    const char *help = "HELP";
+
+}commandList;
