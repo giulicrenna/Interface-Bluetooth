@@ -176,6 +176,7 @@ bool askForKey(const char *_pin_)
 
 void determinateParity(String parity)
 {
+    UARTparam.parity_str = parity;
     if (parity == "SERIAL_5N1")
     {
         UARTparam.parity = SERIAL_5N1;
@@ -271,5 +272,105 @@ void determinateParity(String parity)
     else if (parity == "SERIAL_8O2")
     {
         UARTparam.parity = SERIAL_8O2;
+    }
+}
+
+void determinateParity(int parity)
+{
+    if (parity == SERIAL_5N1)
+    {
+        UARTparam.parity_str = "SERIAL_5N1";
+    }
+    else if (parity == SERIAL_6N1)
+    {
+        UARTparam.parity_str = "SERIAL_6N1";
+    }
+    else if (parity == SERIAL_7N1)
+    {
+        UARTparam.parity_str = "SERIAL_7N1";
+    }
+    else if (parity == SERIAL_8N1)
+    {
+        UARTparam.parity_str = "SERIAL_8N1";
+    }
+    else if (parity == SERIAL_5N2)
+    {
+        UARTparam.parity_str = "SERIAL_5N2";
+    }
+    else if (parity == SERIAL_6N2)
+    {
+        UARTparam.parity_str = "SERIAL_6N2";
+    }
+    else if (parity == SERIAL_7N2)
+    {
+        UARTparam.parity_str = "SERIAL_7N2";
+    }
+    else if (parity == SERIAL_8N2)
+    {
+        UARTparam.parity_str = "SERIAL_8N2";
+    }
+    else if (parity == SERIAL_5E1)
+    {
+        UARTparam.parity_str = "SERIAL_5E1";
+    }
+    else if (parity == SERIAL_6E1)
+    {
+        UARTparam.parity_str = "SERIAL_6E1";
+    }
+    else if (parity == SERIAL_7E1)
+    {
+        UARTparam.parity_str = "SERIAL_7E1";
+    }
+    else if (parity == SERIAL_8E1)
+    {
+        UARTparam.parity_str = "SERIAL_8E1";
+    }
+    else if (parity == SERIAL_5E2)
+    {
+        UARTparam.parity_str = "SERIAL_5E2";
+    }
+    else if (parity == SERIAL_6E2)
+    {
+        UARTparam.parity_str = "SERIAL_6E2";
+    }
+    else if (parity == SERIAL_7E2)
+    {
+        UARTparam.parity_str = "SERIAL_7E2";
+    }
+    else if (parity == SERIAL_8E2)
+    {
+        UARTparam.parity_str = "SERIAL_8E2";
+    }
+    else if (parity == SERIAL_5O1)
+    {
+        UARTparam.parity_str = "SERIAL_5O1";
+    }
+    else if (parity == SERIAL_6O1)
+    {
+        UARTparam.parity_str = "SERIAL_6O1";
+    }
+    else if (parity == SERIAL_7O1)
+    {
+        UARTparam.parity_str = "SERIAL_7O1";
+    }
+    else if (parity == SERIAL_8O1)
+    {
+        UARTparam.parity_str = "SERIAL_8O1";
+    }
+    else if (parity == SERIAL_5O2)
+    {
+        UARTparam.parity_str = "SERIAL_5O2";
+    }
+    else if (parity == SERIAL_6O2)
+    {
+        UARTparam.parity_str = "SERIAL_6O2";
+    }
+    else if (parity == SERIAL_7O2)
+    {
+        UARTparam.parity_str = "SERIAL_7O2";
+    }
+    else if (parity == SERIAL_8O2)
+    {
+        UARTparam.parity_str = "SERIAL_8O2";
     }
 }
