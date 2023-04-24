@@ -1,11 +1,31 @@
-#include <HardwareSerial.h>
 #include <cstdlib>
-// #include <esp32-hal-cpu.h>
-// #include <hal/uart_ll.h>
+
+#include "driver/uart.h"
+#include "esp_log.h"
+#include "driver/gpio.h"
+#include "sdkconfig.h"
+#include "esp_intr_alloc.h"
+
+int UART_CONFIGS[] = {
+    SERIAL_7O2,
+    SERIAL_7O1,
+    SERIAL_8O2,
+    SERIAL_8O1,
+    SERIAL_8E2,
+    SERIAL_8E1,
+    SERIAL_7E2,
+    SERIAL_7E1,
+    SERIAL_7N2,
+    SERIAL_7N1,
+    SERIAL_8N2,
+    SERIAL_8N1,
+    };
+
+void onRxInterrups(hardwareSerial_error_t interrupt);
 
 int checkBetweenBauds(int b)
 {
-    int bauds[14] = {9600, 110, 300, 600, 1200, 115200, 57600, 2400, 4800, 14400, 19200, 38400, 128000, 256000};
+    int bauds[21] = {110, 300, 600, 1200, 4800, 9600, 115200, 57600, 2400, 4800, 14400, 19200, 28800, 38400, 76800, 128000, 230400, 256000, 460800, 576000, 921600};
     for (int baud : bauds)
     {
         if (std::abs(baud - b) < 150)
@@ -32,9 +52,59 @@ extern "C"
 }
 #endif
 
-int optimalBaudrateDetection(bool inverted, int rxd, int txd, int timeout_ = 1000)
+/**
+ * @brief This function detects interruption on the RX of the UART and manage them.
+ * 
+ * @param interrupt 
+ */
+
+void onRxInterrups(hardwareSerial_error_t interrupt)
 {
-    Serial.begin(0, SERIAL_8N1, rxd, txd, inverted, timeout_); // Passing 0 for baudrate to detect it, the last parameter is a timeout in ms
+    switch (interrupt)
+    {
+    
+    case UART_BREAK_ERROR:
+    {
+        break;
+    }
+    case UART_BUFFER_FULL_ERROR:
+    {
+        break;
+    }
+    case UART_FIFO_OVF_ERROR:
+    {
+        break;
+    }
+    
+    case UART_FRAME_ERROR:
+    {   
+        Blue_send(debugging.err_10);
+        currentState = DETECT_NON_ASCII;
+        break;
+    }
+    case UART_PARITY_ERROR:
+    {
+        Blue_send(debugging.err_11);
+        currentState = DETECT_NON_ASCII;
+        break;
+    }
+    default:
+        Blue_send(debugging.err_9);
+    }
+}
+
+/**
+ * @brief This function detect the baudrate and returns 0 if could not detect anything.
+ *
+ * @param inverted
+ * @param rxd
+ * @param txd
+ * @param timeout_
+ * @return int
+ */
+int optimalBaudrateDetection(bool inverted, int rxd, int txd, int timeout_ = 3000)
+{   
+    Serial.begin(0, UARTparam.parity, rxd, txd, inverted, timeout_); // Passing 0 for baudrate to detect it, the last parameter is a timeout in ms
     unsigned long detectedBaudRate = Serial.baudRate();
     if (detectedBaudRate)
     {

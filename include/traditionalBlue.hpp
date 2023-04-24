@@ -16,6 +16,9 @@ String MACadd = "AA:BB:CC:11:22:33";
 uint8_t address[6] = {0xAA, 0xBB, 0xCC, 0x11, 0x22, 0x33};
 boolean confirmRequestPending = true;
 
+
+void determinateParity(String parity);
+
 void BTConfirmRequestCallback(uint32_t numVal)
 {
     confirmRequestPending = true;
@@ -27,8 +30,7 @@ void BTAuthCompleteCallback(boolean success)
     confirmRequestPending = false;
 }
 
-
-void Blue_setup(const char *deviceName, const char *pin_)
+void Blue_setup(const char *deviceName)
 {
     esp_bt_sp_param_t param_type = ESP_BT_SP_IOCAP_MODE;
 
@@ -45,7 +47,7 @@ void Blue_setup(const char *deviceName, const char *pin_)
     pin_code[3] = '4';
     esp_bt_gap_set_pin(pin_type, 4, pin_code);
 
-    //SerialBT.enableSSP();
+    // SerialBT.enableSSP();
     SerialBT.onConfirmRequest(BTConfirmRequestCallback);
     SerialBT.onAuthComplete(BTAuthCompleteCallback);
     SerialBT.begin(deviceName);
@@ -58,7 +60,7 @@ void Blue_send(char character)
 
 void Blue_send(const char *msg)
 {
-    SerialBT.print(msg);
+    SerialBT.println(msg);
 }
 
 void Blue_send(String msg)
@@ -98,24 +100,277 @@ bool askForKey(const char *_pin_)
     {
         if (millis() - currentTimeForPairing >= 2000)
         {
-            SerialBT.println("**Send user key**");
+            SerialBT.println("**Enviar clave o configuracion nueva**");
             currentTimeForPairing = millis();
+            // SerialBT.println(_pin_);
         }
 
         if (SerialBT.available() > 0)
         {
-            String key = SerialBT.readString();
-            key.trim();
+            String command = SerialBT.readString();
+            command.trim();
+            String cmd[5];
+            std::vector<std::string> cmd_v = mstd::strip(command.c_str(), ':');
+            for (int k = 0; k < cmd_v.size(); k++)
+            {
+                cmd[k] = String(cmd_v.at(k).c_str());
+            }
 
-            SerialBT.println("\nValidating key " + key + "...");
-            delay(1000);
+            if (cmd[0] == "KEY")
+            {
+                SerialBT.println("\nValidando clave " + cmd[1] + "...");
+                delay(1000);
 
-            return (key == _pin_ ? true : false);
+                return (cmd[1] == _pin_ ? true : false);
+            }
+            else if (cmd[0] == "PARIDAD")
+            {
+                determinateParity(cmd[1]);
+                SerialBT.println(debugging.sta_7 + cmd[1]);
+            }
+            else if (cmd[0] == "UART")
+            {
+                if (cmd[1] == "AUTO")
+                {
+                    UARTparam.isAuto = true;
+                    config.putBool("isAuto", UARTparam.isAuto);
+                    SerialBT.println(debugging.sta_8);
+                }
+                else
+                {
+                    UARTparam.baud = std::stoi(cmd[1].c_str());
+                    UARTparam.isAuto = false;
+                    config.putInt("baud", UARTparam.baud);
+                    config.putBool("isAuto", UARTparam.isAuto);
+                    try
+                    {
+                        if (cmd[2] == "RS232")
+                        {
+                            UARTparam.isRS232 = true;
+                        }
+                        else if (cmd[2] == "RS232")
+                        {
+                            UARTparam.isRS232 = false;
+                        }
+                        config.putBool("isRS232", UARTparam.isRS232 );
+                    }
+                    catch (const std::exception &e)
+                    {
+                        SerialBT.println(debugging.sta_9);
+                    }
+                    determinateParity(cmd[3]);
+                    config.putInt("parity", UARTparam.parity);
+                    SerialBT.println(debugging.sta_9 + cmd[1]);
+                }
+                
+            }
         }
-        if(!isAnyone()){
+        if (!isAnyone())
+        {
             ESP.restart();
         }
         cnt += 1;
     }
     return false;
+}
+
+void determinateParity(String parity)
+{
+    UARTparam.parity_str = parity;
+    if (parity == "SERIAL_5N1")
+    {
+        UARTparam.parity = SERIAL_5N1;
+    }
+    else if (parity == "SERIAL_6N1")
+    {
+        UARTparam.parity = SERIAL_6N1;
+    }
+    else if (parity == "SERIAL_7N1")
+    {
+        UARTparam.parity = SERIAL_7N1;
+    }
+    else if (parity == "SERIAL_8N1")
+    {
+        UARTparam.parity = SERIAL_8N1;
+    }
+    else if (parity == "SERIAL_5N2")
+    {
+        UARTparam.parity = SERIAL_5N2;
+    }
+    else if (parity == "SERIAL_6N2")
+    {
+        UARTparam.parity = SERIAL_6N2;
+    }
+    else if (parity == "SERIAL_7N2")
+    {
+        UARTparam.parity = SERIAL_7N2;
+    }
+    else if (parity == "SERIAL_8N2")
+    {
+        UARTparam.parity = SERIAL_8N2;
+    }
+    else if (parity == "SERIAL_5E1")
+    {
+        UARTparam.parity = SERIAL_5E1;
+    }
+    else if (parity == "SERIAL_6E1")
+    {
+        UARTparam.parity = SERIAL_6E1;
+    }
+    else if (parity == "SERIAL_7E1")
+    {
+        UARTparam.parity = SERIAL_7E1;
+    }
+    else if (parity == "SERIAL_8E1")
+    {
+        UARTparam.parity = SERIAL_8E1;
+    }
+    else if (parity == "SERIAL_5E2")
+    {
+        UARTparam.parity = SERIAL_5E2;
+    }
+    else if (parity == "SERIAL_6E2")
+    {
+        UARTparam.parity = SERIAL_6E2;
+    }
+    else if (parity == "SERIAL_7E2")
+    {
+        UARTparam.parity = SERIAL_7E2;
+    }
+    else if (parity == "SERIAL_8E2")
+    {
+        UARTparam.parity = SERIAL_8E2;
+    }
+    else if (parity == "SERIAL_5O1")
+    {
+        UARTparam.parity = SERIAL_5O1;
+    }
+    else if (parity == "SERIAL_6O1")
+    {
+        UARTparam.parity = SERIAL_6O1;
+    }
+    else if (parity == "SERIAL_7O1")
+    {
+        UARTparam.parity = SERIAL_7O1;
+    }
+    else if (parity == "SERIAL_8O1")
+    {
+        UARTparam.parity = SERIAL_8O1;
+    }
+    else if (parity == "SERIAL_5O2")
+    {
+        UARTparam.parity = SERIAL_5O2;
+    }
+    else if (parity == "SERIAL_6O2")
+    {
+        UARTparam.parity = SERIAL_6O2;
+    }
+    else if (parity == "SERIAL_7O2")
+    {
+        UARTparam.parity = SERIAL_7O2;
+    }
+    else if (parity == "SERIAL_8O2")
+    {
+        UARTparam.parity = SERIAL_8O2;
+    }
+}
+
+void determinateParity(int parity)
+{
+    if (parity == SERIAL_5N1)
+    {
+        UARTparam.parity_str = "SERIAL_5N1";
+    }
+    else if (parity == SERIAL_6N1)
+    {
+        UARTparam.parity_str = "SERIAL_6N1";
+    }
+    else if (parity == SERIAL_7N1)
+    {
+        UARTparam.parity_str = "SERIAL_7N1";
+    }
+    else if (parity == SERIAL_8N1)
+    {
+        UARTparam.parity_str = "SERIAL_8N1";
+    }
+    else if (parity == SERIAL_5N2)
+    {
+        UARTparam.parity_str = "SERIAL_5N2";
+    }
+    else if (parity == SERIAL_6N2)
+    {
+        UARTparam.parity_str = "SERIAL_6N2";
+    }
+    else if (parity == SERIAL_7N2)
+    {
+        UARTparam.parity_str = "SERIAL_7N2";
+    }
+    else if (parity == SERIAL_8N2)
+    {
+        UARTparam.parity_str = "SERIAL_8N2";
+    }
+    else if (parity == SERIAL_5E1)
+    {
+        UARTparam.parity_str = "SERIAL_5E1";
+    }
+    else if (parity == SERIAL_6E1)
+    {
+        UARTparam.parity_str = "SERIAL_6E1";
+    }
+    else if (parity == SERIAL_7E1)
+    {
+        UARTparam.parity_str = "SERIAL_7E1";
+    }
+    else if (parity == SERIAL_8E1)
+    {
+        UARTparam.parity_str = "SERIAL_8E1";
+    }
+    else if (parity == SERIAL_5E2)
+    {
+        UARTparam.parity_str = "SERIAL_5E2";
+    }
+    else if (parity == SERIAL_6E2)
+    {
+        UARTparam.parity_str = "SERIAL_6E2";
+    }
+    else if (parity == SERIAL_7E2)
+    {
+        UARTparam.parity_str = "SERIAL_7E2";
+    }
+    else if (parity == SERIAL_8E2)
+    {
+        UARTparam.parity_str = "SERIAL_8E2";
+    }
+    else if (parity == SERIAL_5O1)
+    {
+        UARTparam.parity_str = "SERIAL_5O1";
+    }
+    else if (parity == SERIAL_6O1)
+    {
+        UARTparam.parity_str = "SERIAL_6O1";
+    }
+    else if (parity == SERIAL_7O1)
+    {
+        UARTparam.parity_str = "SERIAL_7O1";
+    }
+    else if (parity == SERIAL_8O1)
+    {
+        UARTparam.parity_str = "SERIAL_8O1";
+    }
+    else if (parity == SERIAL_5O2)
+    {
+        UARTparam.parity_str = "SERIAL_5O2";
+    }
+    else if (parity == SERIAL_6O2)
+    {
+        UARTparam.parity_str = "SERIAL_6O2";
+    }
+    else if (parity == SERIAL_7O2)
+    {
+        UARTparam.parity_str = "SERIAL_7O2";
+    }
+    else if (parity == SERIAL_8O2)
+    {
+        UARTparam.parity_str = "SERIAL_8O2";
+    }
 }
