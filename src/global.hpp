@@ -75,7 +75,7 @@ struct debugMessages
     const char *err_0 = "\n[err 0] No se pudo detectar la configuración en RS232";
     const char *err_1 = "\n[err 1] No se pudo detectar la configuración en RS485";
     const char *err_2 = "\n[err 2] Contraseña incorrecta";
-    const char *err_3 = "\n[err 3] No se pudo obtener la configuracion";
+    const char *err_3 = "\n[err 3] No se pudo obtener la configuración";
     const char *err_4 = "\n[err 4] Parametros incorrectos";
     const char *err_5 = "\n[err 5] Contraseña incorrecta";
     const char *err_6 = "\n[err 6] Contraseña incorrecta";
